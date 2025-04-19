@@ -100,7 +100,7 @@ DEFAULT_TARIFF_RATE = 0.035
 API_TIMEOUT_SECONDS = 20 # Increased slightly
 MAX_API_WORKERS = 8
 APP_NAME = "NPI BOM Analyzer"
-APP_VERSION = "1.1.0" # Updated Version
+APP_VERSION = "1.0.0" # Updated Version
 
 # --- Load Environment Variables ---
 env_path = SCRIPT_DIR / 'keys.env'
@@ -407,30 +407,39 @@ class OAuthHandler(BaseHTTPRequestHandler):
 
 # --- Main Application Class ---
 class BOMAnalyzerApp:
+ 
 
-    # Define color palette as class attributes
-    COLOR_BACKGROUND = "#f0f4f8" # Lighter blue-grey
-    COLOR_FRAME = "#ffffff"
-    COLOR_TEXT = "#2d3748" # Dark grey/blue text
-    COLOR_ACCENT = "#3182ce" # Blue accent
-    COLOR_SUCCESS = "#38a169" # Green
-    COLOR_WARN = "#dd6b20" # Orange
-    COLOR_ERROR = "#e53e3e" # Red
-    COLOR_DISABLED = "#a0aec0" # Grey for disabled elements
-    COLOR_BORDER = "#d1d5db" # Light grey border
-    COLOR_PLOT_BG = "#ffffff" # White background for plots usually looks best
-    # --- Risk Configuration Constants (Can be externalized to JSON/config file later) ---
+    # Define color palette as class attributes for consistency
+    COLOR_BACKGROUND = "#e1e1e1" # Medium-Light Gray (Warmer than default 'clam')
+    COLOR_FRAME_BG = "#f0f0f0"   # Lighter Gray for content frames (subtle contrast)
+    COLOR_TEXT = "#333333"      # Darker Gray Text
+    COLOR_ACCENT = "#0078d4"    # A slightly different blue (Windows blue)
+    COLOR_SUCCESS = "#107c10"   # Darker Green
+    COLOR_WARN = "#ca5010"      # Darker Orange
+    COLOR_ERROR = "#d13438"     # Darker Red
+    COLOR_DISABLED = "#a19f9d"  # Gray for disabled elements
+    COLOR_BORDER = "#c1c1c1"    # Slightly darker border
+    COLOR_PLOT_BG = "#ffffff"    # Keep plots white
+    COLOR_TREE_HEADING = "#d1d1d1" # Gray for tree headings
+    COLOR_TREE_ROW_ALT = "#f5f5f5"  # Alternate row color
+    COLOR_STATUS_BAR_BG = "#b1b1b1" # Darker status bar
+    COLOR_STATUS_BAR_TEXT = "#111111" # Very dark text for status bar
+
+    # --- Define Font Sizes as Class Attributes ---
+    FONT_FAMILY = "Segoe UI" # Or choose another suitable font
+    FONT_SIZE_SMALL = 8
+    FONT_SIZE_NORMAL = 10     # Increased from 9
+    FONT_SIZE_LARGE = 11     # For headings/tabs
+    FONT_SIZE_XLARGE = 15    # For main titles
+    # --- End Font Sizes ---
+ 
+
+    # --- Risk Configuration Constants ---
     RISK_WEIGHTS = {'Sourcing': 0.30, 'Stock': 0.15, 'LeadTime': 0.15, 'Lifecycle': 0.30, 'Geographic': 0.10}
     GEO_RISK_TIERS = {
-        # Higher Risk
-        "China": 7, "Russia": 9,
-        # Moderate Risk
-        "Taiwan": 5, "Malaysia": 4, "Vietnam": 4, "India": 5, "Philippines": 4,
-        "Thailand": 4, "South Korea": 3,
-        # Lower Risk
-        "USA": 1, "United States": 1, "Mexico": 2, "Canada": 1, "Japan": 1,
+        "China": 7, "Russia": 9, "Taiwan": 5, "Malaysia": 4, "Vietnam": 4, "India": 5, "Philippines": 4,
+        "Thailand": 4, "South Korea": 3, "USA": 1, "United States": 1, "Mexico": 2, "Canada": 1, "Japan": 1,
         "Germany": 1, "France": 1, "UK": 1, "Ireland": 1, "Switzerland": 1, "EU": 1,
-        # Default / Slightly Elevated Penalty for Unknown
         "Unknown": 4, "N/A": 4, "_DEFAULT_": 4
     }
     RISK_CATEGORIES = {'high': (6.6, 10.0), 'moderate': (3.6, 6.5), 'low': (0.0, 3.5)}
@@ -438,774 +447,434 @@ class BOMAnalyzerApp:
 
     def __init__(self, root):
         self.root = root
-        self.load_button = None
-        self.file_label = None
-        self.run_button = None
-        self.predict_button = None
-        self.ai_summary_button = None
-        self.validation_label = None
-        self.tree = None
-        self.analysis_table = None
-        self.predictions_tree = None
-        self.ai_summary_text = None
-        self.status_label = None
-        self.progress = None
-        self.progress_label = None
-        self.rate_label = None
-        self.universal_status_bar = None
-        self.universal_tooltip_label = None
-        self.plot_combo = None
-        self.plot_frame = None
-        self.fig_canvas = None
-        self.toolbar = None
-        # Export Buttons
-        self.export_parts_list_btn = None
-        self.lowest_cost_btn = None 
-        self.fastest_btn = None
-        self.optimized_strategy_btn = None
-        self.lowest_cost_strict_btn = None 
-        self.in_stock_btn = None
-        self.with_lt_btn = None
+
+        # --- >>> Assign Class Font Attributes to Instance Attributes <<< ---
+        self.FONT_FAMILY = BOMAnalyzerApp.FONT_FAMILY
+        self.FONT_SIZE_SMALL = BOMAnalyzerApp.FONT_SIZE_SMALL
+        self.FONT_SIZE_NORMAL = BOMAnalyzerApp.FONT_SIZE_NORMAL
+        self.FONT_SIZE_LARGE = BOMAnalyzerApp.FONT_SIZE_LARGE
+        self.FONT_SIZE_XLARGE = BOMAnalyzerApp.FONT_SIZE_XLARGE
+        # --- >>> End Assignment <<< ---
+
+        # Initialize widget variables to None (good practice)
+        self.load_button = self.file_label = self.run_button = self.predict_button = None
+        self.ai_summary_button = self.validation_label = self.tree = self.analysis_table = None
+        self.predictions_tree = self.ai_summary_text = self.status_label = self.progress = None
+        self.progress_label = self.rate_label = self.universal_status_bar = None
+        self.universal_tooltip_label = self.plot_combo = self.plot_frame = None
+        self.fig_canvas = self.toolbar = self.export_parts_list_btn = None
+        self.lowest_cost_btn = self.fastest_btn = self.optimized_strategy_btn = None
+        self.lowest_cost_strict_btn = self.in_stock_btn = self.with_lt_btn = None
+
         self.root.title(f"{APP_NAME} - v{APP_VERSION}")
-        self.root.geometry("1500x900") # Adjusted size
+        self.root.geometry("1500x900") # Keep size
         self.root.minsize(1100, 700)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_rowconfigure(1, weight=0) 
-        self.root.grid_columnconfigure(0, weight=1) # Allow content to expand horizontally
-        # Set a modern theme
-        try:
-            import sv_ttk
-            sv_ttk.set_theme("dark") # or "light"
-            logger.info("Applied Sun Valley ttk theme.")
-        except Exception as e:
-            logger.warning(f"Could not apply Sun Valley ttk theme: {e}")
+        # Configure root window grid
+        self.root.grid_rowconfigure(0, weight=1) # Paned window row expands vertically
+        self.root.grid_rowconfigure(1, weight=0) # Status bar row fixed height
+        self.root.grid_columnconfigure(0, weight=1) # Single column for main content + status
+        self.root.configure(bg=self.COLOR_BACKGROUND)
+
+        # --- Theme and Style Configuration ---
         self.style = ttk.Style()
         available_themes = self.style.theme_names()
         logger.debug(f"Available themes: {available_themes}")
-       
-        for theme in ['clam', 'alt', 'default']:
+        # Try setting a theme (e.g., clam, alt) - clam is often good base
+        preferred_themes = ['clam', 'alt', 'vista', 'xpnative', 'default']
+        chosen_theme = None
+        for theme in preferred_themes:
             if theme in available_themes:
-              self.style.theme_use(theme)
-              logger.info(f"Using theme: {theme}")
-              break 
-            else:
-              logger.warning("Could not find preferred themes (clam, alt, default). Using system default.")
+                try: self.style.theme_use(theme); logger.info(f"Using theme: {theme}"); chosen_theme = theme; break
+                except tk.TclError: logger.warning(f"Could not use theme '{theme}'.")
+        if not chosen_theme: logger.warning("Using system default theme.")
 
-        # Configure base styles for a cleaner look
-        self.root.configure(bg='#e1e1e1') # Light gray background
-        self.style.configure("TFrame", background='#e1e1e1')
-        self.style.configure("TLabel", background='#e1e1e1', font=("Segoe UI", 9))
-        self.style.configure("TButton", font=("Segoe UI", 9, "bold"), padding=(8, 4))
-        self.style.configure("Treeview", font=("Segoe UI", 9), rowheight=25, fieldbackground="#ffffff")
-        self.style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"), background="#c1c1c1", relief="groove")
-        self.style.map("Treeview.Heading", relief=[('active','groove'),('pressed','sunken')])
-        self.style.configure("TNotebook", background='#e1e1e1', borderwidth=0)
-        self.style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[12, 6], background="#d0d0d0", foreground="#333")
-        self.style.map("TNotebook.Tab", background=[("selected", "#a1a1a1")], foreground=[("selected", "#ffffff")])
-        self.style.configure("TLabelframe", background='#e1e1e1', relief="solid", borderwidth=1, padding=10)
-        self.style.configure("TLabelframe.Label", background='#e1e1e1', font=("Segoe UI", 10, "bold"), padding=(0,0,0,5))
-        self.style.configure("TScrollbar", background='#e1e1e1', troughcolor='#f0f0f0')
-        self.style.configure("TProgressbar", troughcolor='#f0f0f0', background='#0078d4') # Use a distinct progress bar color
-        self.style.configure("warn_metric.Treeview", background="#fffacd") # Light yellow background for warning rows
-        self.style.configure("error_metric.Treeview", background="#ffdddd") # Light red background for error rows
-        self.style.configure("Treeview",
-                             background="white",
-                             fieldbackground="white",
-                             foreground=self.COLOR_TEXT, # Use defined text color
-                             font=("Segoe UI", 9),
-                             rowheight=25) # Adjust row height if needed
-        self.style.map('Treeview', background=[('selected', self.COLOR_ACCENT)], foreground=[('selected', 'white')])
-        # (Foreground color can also be set here if desired)
-        # Example: self.style.configure("error_metric.Treeview", foreground=self.COLOR_ERROR)
+        # --- Configure Base Styles with Updated Fonts ---
+        self.style.configure(".", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, bordercolor=self.COLOR_BORDER, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)) # Base font size
+        self.style.configure("TFrame", background=self.COLOR_BACKGROUND)
+        self.style.configure("Card.TFrame", background=self.COLOR_FRAME_BG, relief='raised', borderwidth=1)
+        self.style.configure("InnerCard.TFrame", background=self.COLOR_FRAME_BG) # Match Card
+        self.style.configure("TLabelframe", background=self.COLOR_BACKGROUND, bordercolor=self.COLOR_BORDER, relief="groove", borderwidth=1, padding=10)
+        self.style.configure("TLabelframe.Label", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_LARGE, "bold"))
+        self.style.configure("TLabel", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), padding=(0, 2))
+        self.style.configure("Title.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_XLARGE, "bold"), foreground=self.COLOR_ACCENT, background=self.COLOR_FRAME_BG) # Match frame bg
+        self.style.configure("Hint.TLabel", foreground="#555555", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL), background=self.COLOR_FRAME_BG) # Match frame bg
+        self.style.configure("Status.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL)) # Status bar label
         
+        # Button styling (using new colors)
+        self.style.configure("TButton", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), padding=(10, 5), relief="raised", borderwidth=1)
+        self.style.map("TButton",
+            background=[('active', '#c0c0c0'), ('!disabled', '#dcdcdc')], # Adjusted grays
+            bordercolor=[('focus', self.COLOR_ACCENT)],
+            relief=[('pressed', 'sunken')]
+        )
+        self.style.configure("Accent.TButton", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"), foreground="white", background=self.COLOR_ACCENT, borderwidth=1)
+        self.style.map("Accent.TButton", background=[('active', '#005a9e'), ('!disabled', self.COLOR_ACCENT)]) # Darker blue active
+
+        ## Treeview Styling
+        treeview_rowheight = 28
+        self.style.configure("Treeview", background=self.COLOR_FRAME_BG, fieldbackground=self.COLOR_FRAME_BG, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), rowheight=treeview_rowheight)
+        self.style.map('Treeview', background=[('selected', self.COLOR_ACCENT)], foreground=[('selected', 'white')])
+        self.style.configure("Treeview.Heading", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"), background=self.COLOR_TREE_HEADING, relief="raised", borderwidth=1, padding=(4, 4)) # Use raised relief
+        self.style.map("Treeview.Heading", relief=[('active','raised'),('pressed','raised')]) # Keep raised
+
+        # Risk tag colors (adjust if needed for new background)
+        self.style.configure("high_risk.Treeview", background='#fee2e2'); self.style.configure("moderate_risk.Treeview", background='#fef3c7'); self.style.configure("low_risk.Treeview", background='#dcfce7'); self.style.configure("na_risk.Treeview", background='#f3f4f6'); self.style.configure("warn_metric.Treeview", background='#fffbeb'); self.style.configure("error_metric.Treeview", background='#fff1f2')
+
+        # Notebook Styling
+        self.style.configure("TNotebook", background=self.COLOR_BACKGROUND, borderwidth=0, tabmargins=[5, 5, 5, 0])
+        self.style.configure("TNotebook.Tab", font=(self.FONT_FAMILY, self.FONT_SIZE_LARGE, "bold"), padding=[12, 6], background="#d1d5db", foreground="#4b5563")
+        self.style.map("TNotebook.Tab", background=[("selected", self.COLOR_FRAME_BG), ('!selected', '#e5e7eb')], foreground=[("selected", self.COLOR_ACCENT), ('!selected', '#4b5563')], expand=[("selected", [1, 1, 1, 0])])
+
+        # Scrollbar and Progressbar
+        self.style.configure("TScrollbar", background=self.COLOR_BACKGROUND, troughcolor='#e5e7eb', bordercolor="#cccccc", arrowcolor='#333333') # Match bg
+        self.style.configure("TProgressbar", troughcolor='#e5e7eb', background=self.COLOR_ACCENT, thickness=15)
+
+        # Status Bar Styling (use new colors)
+        self.style.configure("StatusBar.TFrame", background=self.COLOR_STATUS_BAR_BG, borderwidth=1, relief='flat')
+        self.style.configure("Status.TLabel", background=self.COLOR_STATUS_BAR_BG, foreground=self.COLOR_STATUS_BAR_TEXT) # Use new text color
 
         logger.info("Initializing GUI...")
 
         # --- Tooltip Setup ---
-        self._tooltips = {} # Store {widget_id: Tooltip instance
-        self.tooltip_texts = {} # Store {widget: text} for universal tooltip 
+        self._tooltips = {}
+        self.tooltip_texts = {}
 
         # --- Define Headers ---
-        # Historical Data Header
-        self.hist_header = ['Component', 'Manufacturer', 'Part_Number', 'Distributor',
-               'Lead_Time_Days', 'Cost', 'Inventory', 'Stock_Probability', 'Fetch_Timestamp']
-        # Prediction Data Header (Ensure all used columns are here in desired order)
-        self.pred_header = ['Component', 'Date',
-                       'Prophet_Lead', 'Prophet_Cost',
-                       'RAG_Lead', 'RAG_Cost',
-                       'AI_Lead', 'AI_Cost',
-                       'Stock_Probability',
-                       'Real_Lead', 'Real_Cost', 'Real_Stock',
-                       'Prophet_Ld_Acc', 'Prophet_Cost_Acc',
-                       'RAG_Ld_Acc', 'RAG_Cost_Acc',
-                       'AI_Ld_Acc', 'AI_Cost_Acc']
+        self.hist_header = ['Component', 'Manufacturer', 'Part_Number', 'Distributor', 'Lead_Time_Days', 'Cost', 'Inventory', 'Stock_Probability', 'Fetch_Timestamp']
+        self.pred_header = ['Component', 'Date', 'Prophet_Lead', 'Prophet_Cost', 'RAG_Lead', 'RAG_Cost', 'AI_Lead', 'AI_Cost', 'Stock_Probability', 'Real_Lead', 'Real_Cost', 'Real_Stock', 'Prophet_Ld_Acc', 'Prophet_Cost_Acc', 'RAG_Ld_Acc', 'RAG_Cost_Acc', 'AI_Ld_Acc', 'AI_Cost_Acc']
 
         # --- Main Layout ---
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.main_paned_window.grid(row=0, column=0, sticky="nsew", padx=10, pady=(0, 5))
+        self.main_paned_window.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 5))
         logger.debug("Main paned window gridded onto root window.")
 
-        # --- Universal Status Bar (Creation & Packing) ---
-        # Create the Frame (child of root)
-        STATUS_BAR_HEIGHT = 35,
-        self.universal_status_bar = ttk.Frame(self.root, relief='sunken', style="StatusBar.TFrame", height=STATUS_BAR_HEIGHT)
-                                                #borderwidth=2, background='red') # TEMPORARY DEBUG
-
-        # Create the Label (child of the status bar frame)
-        self.universal_tooltip_label = ttk.Label(
-            self.universal_status_bar,
-            text=" ",
-            anchor='w',
-            wraplength=self.root.winfo_screenwidth() - 50, # Adjust as needed
-            font=("Segoe UI", 8),
-            style="Status.TLabel"
-        )
-        # Pack the LABEL *inside* the STATUS BAR FRAME
-        self.universal_tooltip_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=(2,2))
-
-        # Pack the STATUS BAR FRAME itself onto the root window (BOTTOM, LAST)
-        # This line MUST come AFTER the main content is packed (Step 1D)
-        self.universal_status_bar.grid(row=1, column=0, sticky="ew", padx=0, pady=(1, 0))
-        self.root.grid_rowconfigure(1, weight=0, uniform='statusbar') # Added uniform group
+        # --- Universal Status Bar ---
+        STATUS_BAR_HEIGHT = 35
+        self.universal_status_bar = ttk.Frame(self.root, style="StatusBar.TFrame", height=STATUS_BAR_HEIGHT)
+        # ... (Label setup and packing inside status bar frame) ...
+        self.universal_tooltip_label = ttk.Label(self.universal_status_bar, text=" ", anchor='w', wraplength=1400, style="Status.TLabel")
+        self.universal_tooltip_label.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=(1, 1))
+        # Grid status bar in root window, row 1
+        self.universal_status_bar.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 0)) # columnspan=1 or remove
         self.universal_status_bar.grid_propagate(False)
 
-        # --- Optional: Define Status Bar Styles ---
-        # Place these lines earlier in __init__ with your other style configurations
-        self.style.configure("StatusBar.TFrame", background="#e0e0e0", borderwidth=1)
-        self.style.configure("Status.TLabel", background="#e0e0e0", foreground="#333333")
-        
         # --- Left Pane: Configuration ---
-        self.config_frame_outer = ttk.Frame(self.main_paned_window, padding=0, width=450) 
-        self.main_paned_window.add(self.config_frame_outer, weight=2)
-
-        # Make the config frame scrollable
-        self.config_scroll_canvas = tk.Canvas(self.config_frame_outer, borderwidth=0, background="#e1e1e1", highlightthickness=0)
+        self.config_frame_outer = ttk.Frame(self.main_paned_window, padding=0, width=450, style="Card.TFrame")
+        self.config_frame_outer.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=(10, 5))
+        self.config_scroll_canvas = tk.Canvas(self.config_frame_outer, borderwidth=0, background=self.COLOR_FRAME_BG, highlightthickness=0)
         self.config_scrollbar = ttk.Scrollbar(self.config_frame_outer, orient="vertical", command=self.config_scroll_canvas.yview)
-        self.config_frame = ttk.Frame(self.config_scroll_canvas, padding=(15, 15)) # Inner frame for content
-
+        self.config_frame = ttk.Frame(self.config_scroll_canvas, padding=(15, 15), style="InnerCard.TFrame")
         self.config_frame.bind("<Configure>", lambda e: self.config_scroll_canvas.configure(scrollregion=self.config_scroll_canvas.bbox("all")))
         self.config_scroll_canvas.create_window((0, 0), window=self.config_frame, anchor="nw")
         self.config_scroll_canvas.configure(yscrollcommand=self.config_scrollbar.set)
-
-        self.config_scroll_canvas.pack(side="left", fill="both", expand=True)
-        self.config_scrollbar.pack(side="right", fill="y")
-
-        # Bind mouse wheel scrolling for config frame (platform specific)
+        self.config_scroll_canvas.pack(side="left", fill="both", expand=True); self.config_scrollbar.pack(side="right", fill="y")
+        
+        # Mouse wheel binding
         def _on_mousewheel_config(event):
-            # Determine scroll direction (platform dependent)
-            if event.num == 4 or event.delta > 0: # Linux up / Windows up
-                self.config_scroll_canvas.yview_scroll(-1, "units")
-            elif event.num == 5 or event.delta < 0: # Linux down / Windows down
-                self.config_scroll_canvas.yview_scroll(1, "units")
-        # Bind for Linux and Windows/Mac
-        self.config_frame.bind_all("<MouseWheel>", _on_mousewheel_config) # Windows/Mac
-        self.config_frame.bind_all("<Button-4>", _on_mousewheel_config) # Linux Scroll Up
-        self.config_frame.bind_all("<Button-5>", _on_mousewheel_config) # Linux Scroll Down
+            delta = 0
+            if event.num == 4: delta = -1; # Linux scroll up
+            elif event.num == 5: delta = 1; # Linux scroll down
+            elif event.delta > 0: delta = -1; # Windows/Mac scroll up
+            elif event.delta < 0: delta = 1; # Windows/Mac scroll down
+            if delta != 0: self.config_scroll_canvas.yview_scroll(delta, "units")
+        self.config_frame.bind_all("<MouseWheel>", _on_mousewheel_config)
+        self.config_frame.bind_all("<Button-4>", _on_mousewheel_config)
+        self.config_frame.bind_all("<Button-5>", _on_mousewheel_config)
 
         # --- Configuration Widgets ---
-        ttk.Label(self.config_frame, text="Configuration", font=("Segoe UI", 14, "bold")).pack(fill="x", pady=(0, 15), anchor='w')
-
+        ttk.Label(self.config_frame, text="Configuration", style="Title.TLabel").pack(fill="x", pady=(0, 15), anchor='w')
         # Load BOM Section
-        load_bom_frame = ttk.Frame(self.config_frame)
+        load_bom_frame = ttk.Frame(self.config_frame, style="InnerCard.TFrame")
         load_bom_frame.pack(fill="x", pady=(0, 10))
         self.load_button = ttk.Button(load_bom_frame, text="Load BOM...", command=self.load_bom)
-        self.load_button.pack(side=tk.LEFT, padx=(0, 5))
-        self.create_tooltip(self.load_button, "Load a Bill of Materials (BOM) in CSV format.\nRequires columns like 'Part Number' and 'Quantity'.")
-        self.file_label = ttk.Label(load_bom_frame, text="No BOM loaded.", style="Hint.TLabel", wraplength=250) # Use custom style
-        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5,0))
-        self.style.configure("Hint.TLabel", foreground="#555555") # Define hint style
-
+        self.load_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.create_tooltip(self.load_button, "Load a Bill of Materials (BOM) in CSV format. Requires columns like 'Part Number' and 'Quantity'.")
+        self.file_label = ttk.Label(load_bom_frame, text="No BOM loaded.", style="Hint.TLabel", wraplength=280, background=self.COLOR_FRAME_BG)
+        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
         # Analysis Controls Section
         run_frame = ttk.LabelFrame(self.config_frame, text="Analysis Controls", padding=10)
         run_frame.pack(fill="x", pady=(10, 10))
-        self.run_button = ttk.Button(run_frame, text="Run Analysis", command=self.validate_and_run_analysis, state="disabled", style="Accent.TButton") # Use accent style
+        self.run_button = ttk.Button(run_frame, text="Run Analysis", command=self.validate_and_run_analysis, state="disabled", style="Accent.TButton")
+        self.run_button.pack(side=tk.LEFT, padx=(0,5), ipady=2)
         self.create_tooltip(self.run_button, "Run the full analysis using current BOM and configuration.\nFetches data from suppliers, calculates risk, and determines strategies.")
-        self.run_button.pack(side=tk.LEFT, padx=(0,5), ipady=2) # Add internal padding
-        self.style.configure("Accent.TButton", background="#0078d4", foreground="white")
-        self.style.map("Accent.TButton", background=[('active', '#005a9e')])
-
         self.predict_button = ttk.Button(run_frame, text="Run Predictions", command=self.run_predictive_analysis_gui, state="disabled")
-        self.predict_button.pack(side=tk.LEFT, padx=5)
+        self.predict_button.pack(side=tk.LEFT, padx=5, ipady=2)
         self.create_tooltip(self.predict_button, "Generate future cost/lead time predictions based on historical data.\nRequires historical data from previous analysis runs.")
-
         self.ai_summary_button = ttk.Button(run_frame, text="AI Summary", command=self.generate_ai_summary_gui, state="disabled")
-        self.ai_summary_button.pack(side=tk.LEFT)
+        self.ai_summary_button.pack(side=tk.LEFT, ipady=2)
         self.create_tooltip(self.ai_summary_button, "Generate an executive summary and recommendations using OpenAI.\nRequires analysis results and an OpenAI API key.")
-
         ttk.Separator(self.config_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(15, 10), padx=5)
         
         # Optimized Strategy Config Section
         optimized_strategy_frame = ttk.LabelFrame(self.config_frame, text="Optimized Strategy Configuration", padding=10)
         optimized_strategy_frame.pack(fill="x", pady=(0, 5))
-
-        config_entries = [
-            ("Total Units to Build:", "total_units", "100", "Number of finished units to build (calculates total quantity needed per part)."),
-            ("Max Cost Premium (%):", "max_premium", "15", "Maximum percentage increase over the absolute lowest total cost allowed for a part in the Optimized Strategy."),
-            ("Target Lead Time (days):", "target_lead_time_days", "56", "Maximum acceptable lead time (days) for any part chosen in the Optimized Strategy."),
-            ("Cost Weight (0-1):", "cost_weight", "0.5", "Priority for minimizing cost (0=ignore, 1=only cost). Must sum to 1 with Lead Time Weight."),
-            ("Lead Time Weight (0-1):", "lead_time_weight", "0.5", "Priority for minimizing lead time (0=ignore, 1=only LT). Must sum to 1 with Cost Weight."),
-            ("Buy-Up Threshold (%):", "buy_up_threshold", "1", "Allow buying more parts (e.g., next price break) if total cost increases by no more than this percentage compared to buying the exact needed amount (or MOQ). Set to 0 to disable."),
-        ]
-
-        self.config_vars = {}
-        # Use grid inside the LabelFrame for alignment
-        optimized_strategy_frame.columnconfigure(1, weight=1) # Make entry column expand slightly
-
+        config_entries = [ ("Total Units to Build:", "total_units", "100", "Number of finished units to build (calculates total quantity needed per part)."), ("Max Cost Premium (%):", "max_premium", "15", "Maximum percentage increase over the absolute lowest total cost allowed for a part in the Optimized Strategy."), ("Target Lead Time (days):", "target_lead_time_days", "56", "Maximum acceptable lead time (days) for any part chosen in the Optimized Strategy."), ("Cost Weight (0-1):", "cost_weight", "0.5", "Priority for minimizing cost (0=ignore, 1=only cost). Must sum to 1 with Lead Time Weight."), ("Lead Time Weight (0-1):", "lead_time_weight", "0.5", "Priority for minimizing lead time (0=ignore, 1=only LT). Must sum to 1 with Cost Weight."), ("Buy-Up Threshold (%):", "buy_up_threshold", "1", "Allow buying more parts (e.g., next price break) if total cost increases by no more than this percentage compared to buying the exact needed amount (or MOQ). Set to 0 to disable."), ]
+        self.config_vars = {}; optimized_strategy_frame.columnconfigure(1, weight=1)
         for i, (label, attr, default, hint) in enumerate(config_entries):
             lbl = ttk.Label(optimized_strategy_frame, text=label)
-            lbl.grid(row=i, column=0, sticky="w", padx=(0, 5), pady=2)
-            entry = ttk.Entry(optimized_strategy_frame, width=8) # Reduced width
-            entry.grid(row=i, column=1, sticky="w", pady=2)
-            entry.insert(0, default)
-            self.config_vars[attr] = entry
-            entry.bind("<KeyRelease>", self.validate_inputs) # Validate on key release
-
-            # Add tooltip to both label and entry
-            self.create_tooltip(lbl, hint)
-            self.create_tooltip(entry, hint)
-
+            lbl.grid(row=i, column=0, sticky="w", padx=(0, 5), pady=3)
+            entry = ttk.Entry(optimized_strategy_frame, width=8, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL))
+            entry.grid(row=i, column=1, sticky="w", pady=3)
+            entry.insert(0, default); self.config_vars[attr] = entry; entry.bind("<KeyRelease>", self.validate_inputs)
+            self.create_tooltip(lbl, hint); self.create_tooltip(entry, hint)
+            
         # Tariff Config Section
         self.tariff_frame = ttk.LabelFrame(self.config_frame, text="Custom Tariff Rates (%)", padding=10)
         self.tariff_frame.pack(fill="x", pady=(10, 5))
         self.tariff_entries = {}
-        # Sorted list of common COOs
         top_countries = sorted(["China", "Mexico", "India", "Vietnam", "Taiwan", "Japan", "Malaysia", "Germany", "USA", "Philippines", "Thailand", "South Korea"])
-        self.tariff_frame.columnconfigure((1, 3), weight=1) # Configure columns for entries
+        num_cols_tariff = 3; self.tariff_frame.columnconfigure((1, 3, 5), weight=1)
         for i, country in enumerate(top_countries):
-            row, col = divmod(i, 2) # 2 columns layout
-            frame = ttk.Frame(self.tariff_frame) # Use a subframe for each label/entry pair
-            frame.grid(row=row, column=col*2, columnspan=2, sticky="ew", padx=5, pady=2)
-            frame.columnconfigure(1, weight=1) # Allow entry to expand slightly
-
-            lbl = ttk.Label(frame, text=f"{country}:", width=12) # Fixed width label
-            lbl.pack(side=tk.LEFT)
-            entry = ttk.Entry(frame, width=6)
-            entry.insert(0, "")  # Default blank = use default/predicted
-            entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            self.tariff_entries[country] = entry
+            row, col_idx = divmod(i, num_cols_tariff)
+            frame = ttk.Frame(self.tariff_frame, style="InnerCard.TFrame")
+            frame.grid(row=row, column=col_idx*2, columnspan=2, sticky="ew", padx=5, pady=2); frame.columnconfigure(1, weight=1)
+            lbl = ttk.Label(frame, text=f"{country}:", width=12, anchor='w', background=self.COLOR_FRAME_BG)
+            lbl.pack(side=tk.LEFT, padx=(0,2))
+            entry = ttk.Entry(frame, width=5, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL))
+            entry.insert(0, ""); entry.pack(side=tk.LEFT, fill=tk.X, expand=True); self.tariff_entries[country] = entry
             hint_tariff = f"Custom tariff rate (%) for parts from '{country}'.\nLeave blank to use USITC lookup or default/predicted rate."
-            self.create_tooltip(lbl, hint_tariff)
-            self.create_tooltip(entry, hint_tariff)
-            entry.bind("<KeyRelease>", self.validate_inputs)
-
-        ttk.Label(self.tariff_frame, text="(Blank uses default/predicted)", style="Hint.TLabel").grid(row=(len(top_countries)+1)//2, column=0, columnspan=4, pady=(8,0), sticky='w')
-
-        # Validation Label (placed consistently)
-        self.validation_label = ttk.Label(self.config_frame, text="", foreground="red", wraplength=350, font=("Segoe UI", 8))
-        self.validation_label.pack(fill="x", pady=(5, 10), anchor='w')
-
+            self.create_tooltip(lbl, hint_tariff); self.create_tooltip(entry, hint_tariff); entry.bind("<KeyRelease>", self.validate_inputs)
+        ttk.Label(self.tariff_frame, text="(Blank uses default/predicted)", style="Hint.TLabel", background=self.COLOR_FRAME_BG).grid(row=(len(top_countries) + num_cols_tariff -1)//num_cols_tariff, column=0, columnspan=num_cols_tariff*2, pady=(8,0), sticky='w')
+        
+        # Validation Label
+        self.validation_label = ttk.Label(self.config_frame, text="", foreground=self.COLOR_ERROR, wraplength=350, font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL))
+        self.validation_label.pack(fill="x", pady=(10, 10), anchor='w')
+        
         # API Status Section
         api_status_frame = ttk.LabelFrame(self.config_frame, text="API Status", padding=10)
         api_status_frame.pack(fill="x", pady=(10, 5), anchor='w')
-        self.api_status_labels = {}
-    
-        api_status_frame.columnconfigure(1, weight=1) # Allow status text to expand
+        self.api_status_labels = {}; api_status_frame.columnconfigure(1, weight=1)
         for i, (api_name, is_set) in enumerate(API_KEYS.items()):
-             # Determine Status Text based ONLY on whether the key is set
-             if is_set:
-                 status_text = "OK"
-                 color = "#008000" # Dark Green
-             elif api_name == "OpenAI":
-                  status_text = "Not Set (Optional)"
-                  color = "#ff8c00" # Orange
-             else: # Key is not set for required APIs (DigiKey, Mouser, Nexar) or potential ones (Arrow, Avnet)
-                  status_text = "Not Set"
-                  color = "#e60000" # Dark Red
-
-             lbl_name = ttk.Label(api_status_frame, text=f"{api_name}:", width=15)
-             lbl_name.grid(row=i, column=0, sticky='w', padx=(0,5))
-             lbl_status = ttk.Label(api_status_frame, text=status_text, foreground=color, anchor='w')
-             lbl_status.grid(row=i, column=1, sticky='ew')
-             self.api_status_labels[api_name] = lbl_status # Store the status label for updates
+             if is_set: status_text = "OK"; color = self.COLOR_SUCCESS
+             elif api_name == "OpenAI": status_text = "Not Set (Optional)"; color = self.COLOR_WARN
+             else: status_text = "Not Set"; color = self.COLOR_ERROR
+             lbl_name = ttk.Label(api_status_frame, text=f"{api_name}:", width=15); lbl_name.grid(row=i, column=0, sticky='w', padx=(0,5), pady=1)
+             lbl_status = ttk.Label(api_status_frame, text=status_text, foreground=color, anchor='w'); lbl_status.grid(row=i, column=1, sticky='ew', pady=1); self.api_status_labels[api_name] = lbl_status
 
         # --- Right Pane: Results ---
-        self.results_frame = ttk.Frame(self.main_paned_window, padding=(10, 0, 10, 0)) 
-        self.main_paned_window.add(self.results_frame, weight=3) 
-        self.results_frame.grid_rowconfigure(1, weight=1)    # Notebook takes most space
+        self.results_frame = ttk.Frame(self.main_paned_window, padding=(5, 0, 10, 0))
+        self.results_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=(10, 5))
+        self.main_paned_window.add(self.config_frame_outer, weight=1) # Adjust weight as needed
+        self.main_paned_window.add(self.results_frame, weight=3)
+        self.results_frame.grid_rowconfigure(1, weight=1)
         self.results_frame.grid_columnconfigure(0, weight=1)
-
-        # --- Status Bar --- (Improved Layout)
-        status_progress_frame = ttk.Frame(self.results_frame, padding=(5, 5))
+        
+        # Status Bar Area within Results Pane
+        status_progress_frame = ttk.Frame(self.results_frame, padding=(0, 5))
         status_progress_frame.grid(row=0, column=0, sticky="ew")
-        status_progress_frame.grid_columnconfigure(0, weight=3) # Status label gets more space
-        status_progress_frame.grid_columnconfigure(1, weight=1) # Progress bar
-        status_progress_frame.grid_columnconfigure(2, weight=0) # Percentage label
-        status_progress_frame.grid_columnconfigure(3, weight=2) # Rate limit label
-
-        self.status_label = ttk.Label(status_progress_frame, text="Ready", anchor="w")
-        self.status_label.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-
-        self.progress = ttk.Progressbar(status_progress_frame, orient="horizontal", length=150, mode="determinate")
-        self.progress.grid(row=0, column=1, padx=5, sticky="ew")
-        self.progress_label = ttk.Label(status_progress_frame, text="0%", width=5)
-        self.progress_label.grid(row=0, column=2, padx=(0, 5), sticky="w")
-
-        self.rate_label = ttk.Label(status_progress_frame, text="API Rates: -", anchor="e", style="Hint.TLabel")
-        self.rate_label.grid(row=0, column=3, padx=(10, 0), sticky="ew")
-
+        status_progress_frame.grid_columnconfigure(0, weight=3); status_progress_frame.grid_columnconfigure(1, weight=1); status_progress_frame.grid_columnconfigure(2, weight=0); status_progress_frame.grid_columnconfigure(3, weight=2)
+        self.status_label = ttk.Label(status_progress_frame, text="Ready", anchor="w"); self.status_label.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        self.progress = ttk.Progressbar(status_progress_frame, orient="horizontal", length=150, mode="determinate"); self.progress.grid(row=0, column=1, padx=5, sticky="ew")
+        self.progress_label = ttk.Label(status_progress_frame, text="0%", width=5); self.progress_label.grid(row=0, column=2, padx=(0, 5), sticky="w")
+        self.rate_label = ttk.Label(status_progress_frame, text="API Rates: -", anchor="e", style="Hint.TLabel"); self.rate_label.grid(row=0, column=3, padx=(10, 0), sticky="ew")
+        
         # --- Results Notebook ---
-        self.results_notebook = ttk.Notebook(self.results_frame)
-        self.results_notebook.grid(row=1, column=0, sticky="nsew", pady=(5,0))
-
+        self.results_notebook = ttk.Notebook(self.results_frame); self.results_notebook.grid(row=1, column=0, sticky="nsew", pady=(5,0))
         # --- Tab 1: BOM Analysis Summary ---
-        self.analysis_tab = ttk.Frame(self.results_notebook, padding=(0, 10, 0, 0)) # Padding for content inside tab
-        self.results_notebook.add(self.analysis_tab, text=" BOM Analysis ") # Add spaces for padding
-        # Configure the tab itself to allow the PanedWindow to expand
-        self.analysis_tab.grid_columnconfigure(0, weight=1)
-        self.analysis_tab.grid_rowconfigure(0, weight=1) # Allow vertical PanedWindow to expand
-        # --- >>> NEW: Vertical PanedWindow for splitting Treeview and Summary <<< ---
+        self.analysis_tab = ttk.Frame(self.results_notebook, padding=(0, 5, 0, 5))
+        self.results_notebook.add(self.analysis_tab, text=" BOM Analysis ")
+        self.analysis_tab.grid_columnconfigure(0, weight=1); 
+        self.analysis_tab.grid_rowconfigure(0, weight=1); 
+        self.analysis_tab.grid_rowconfigure(1, weight=0)
+        
+        # --- Vertical PanedWindow ---
         self.analysis_pane = ttk.PanedWindow(self.analysis_tab, orient=tk.VERTICAL)
-        self.analysis_pane.grid(row=0, column=0, sticky="nsew") # Grid the pane onto the tab
+        self.analysis_pane.grid(row=0, column=0, sticky="nsew")
+        
         # -- Top Pane: Parts Treeview --
-        # (Treeview and scrollbar creation logic remains the same)
-        tree_frame_outer = ttk.Frame(self.analysis_pane) # *** PARENT is now analysis_pane ***
-        tree_frame_outer.grid_rowconfigure(0, weight=1)
-        tree_frame_outer.grid_columnconfigure(0, weight=1)
-        columns = [
-            "PartNumber", "Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail",
-            "COO", "RiskScore", "TariffPct",
-            "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", # Added ActualBuyQty
-            "FastestLT", "FastestCost", "FastestLTSrc",
-            "Alternates", "Notes"
-        ]
-        headings = [
-            "BOM P/N", "Manufacturer", "Mfg P/N", "Need", "Lifecycle", "Sources", "Stock",
-            "COO", "Risk", "Tariff (%)",
-            "Unit Cost ($)", "Total Cost ($)", "Buy Qty", "LT (d)", "Src", # Updated headers
-            "Fastest LT (d)", "Cost ($)", "Src",
-            "Alts?", "Notes/Flags"
-        ]
-        col_widths = {
-            "PartNumber": 140, "Manufacturer": 110, "MfgPN": 140, "QtyNeed": 50, "Status": 70, "Sources": 50, "StockAvail": 70,
-            "COO": 50, "RiskScore": 45, "TariffPct": 55,
-            "BestCostPer": 70, "BestTotalCost": 75, "ActualBuyQty": 55, "BestCostLT": 40, "BestCostSrc": 40, # Adjusted widths
-            "FastestLT": 40, "FastestCost": 70, "FastestLTSrc": 40,
-            "Alternates": 40, "Notes": 150 # Wider notes
-        }
-        col_align = { # Alignment for cell content
-            "QtyNeed": 'center', "Status": 'center', "Sources": 'center', "StockAvail": 'e',
-            "COO": 'center', "RiskScore": 'center', "TariffPct": 'e',
-            "BestCostPer": 'e', "BestTotalCost": 'e', "ActualBuyQty": 'center', "BestCostLT": 'center', "BestCostSrc": 'center',
-            "FastestLT": 'center', "FastestCost": 'e', "FastestLTSrc": 'center',
-            "Alternates": 'center',
-        }
-        col_tooltips = { # Tooltips for column headers
-            "PartNumber": "Part number from the input BOM.",
-            "Manufacturer": "Consolidated Manufacturer Name.",
-            "MfgPN": "Consolidated Manufacturer Part Number.",
-            "QtyNeed": "Total quantity needed (BOM Qty/Unit * Total Units).",
-            "Status": "Lifecycle status (Active, EOL, Discontinued, NRND).",
-            "Sources": "Number of suppliers found with data.",
-            "StockAvail": "Total stock across all valid sources.",
-            "COO": "Consolidated Country of Origin.",
-            "RiskScore": "Overall Risk Score (0-10). Higher=More Risk.\nRed(>6.5), Yellow(3.6-6.5), Green(<=3.5).\nFactors: Sourcing, Stock, LeadTime, Lifecycle, Geo.",
-            "TariffPct": "Estimated Tariff Rate (%) based on COO/HTS.",
-            "BestCostPer": "Lowest Unit Cost ($) found for the chosen 'Actual Buy Qty'.",
-            "BestTotalCost": "Lowest Total Cost ($) for the 'Actual Buy Qty' (may include price break optimization).",
-            "ActualBuyQty": "Quantity chosen for the 'Best Total Cost' calculation (may be > QtyNeed due to MOQ or price breaks).",
-            "BestCostLT": "Lead Time (days) for the Best Total Cost option.",
-            "BestCostSrc": "Supplier for the Best Total Cost option.",
-            "FastestLT": "Shortest Lead Time (days) found.",
-            "FastestCost": "Total Cost ($) for the Fastest Lead Time option.",
-            "FastestLTSrc": "Supplier for the Fastest Lead Time option.",
-            "Alternates": "Indicates if potential alternates were found (via DigiKey). Double-click row to view.",
-            "Notes": "Additional notes: Stock Gap, EOL/Discontinued flags, Buy-up reasons."
-        }
+        tree_frame_outer = ttk.Frame(self.analysis_pane, style="Card.TFrame")
+        tree_frame_outer.grid_rowconfigure(0, weight=1); tree_frame_outer.grid_columnconfigure(0, weight=1)
+        columns = [ "PartNumber", "Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "FastestLT", "FastestCost", "FastestLTSrc", "Alternates", "Notes" ]
+        headings = [ "BOM P/N", "Manufacturer", "Mfg P/N", "Need", "Lifecycle", "Srcs", "Stock", "COO", "Risk", "Tariff", "Unit Cost", "Total Cost", "Buy Qty", "LT", "Src", "Fast LT", "Cost", "Src", "Alts?", "Notes/Flags" ]
+        col_widths = { "PartNumber": 140, "Manufacturer": 110, "MfgPN": 140, "QtyNeed": 50, "Status": 65, "Sources": 40, "StockAvail": 70, "COO": 45, "RiskScore": 45, "TariffPct": 50, "BestCostPer": 70, "BestTotalCost": 75, "ActualBuyQty": 55, "BestCostLT": 35, "BestCostSrc": 40, "FastestLT": 35, "FastestCost": 70, "FastestLTSrc": 40, "Alternates": 40, "Notes": 150 }
+        col_align = { "PartNumber": 'w', "Manufacturer": 'w', "MfgPN": 'w', "QtyNeed": 'center', "Status": 'center', "Sources": 'center', "StockAvail": 'e', "COO": 'center', "RiskScore": 'center', "TariffPct": 'e', "BestCostPer": 'e', "BestTotalCost": 'e', "ActualBuyQty": 'center', "BestCostLT": 'center', "BestCostSrc": 'center', "FastestLT": 'center', "FastestCost": 'e', "FastestLTSrc": 'center', "Alternates": 'center', "Notes": 'w' }
+        col_tooltips = { "PartNumber": "Part number from the input BOM.", "Manufacturer": "Consolidated Manufacturer Name.", "MfgPN": "Consolidated Manufacturer Part Number.", "QtyNeed": "Total quantity needed (BOM Qty/Unit * Total Units).", "Status": "Lifecycle status (Active, EOL, Discontinued, NRND).", "Sources": "Number of suppliers found with data.", "StockAvail": "Total stock across all valid sources.", "COO": "Consolidated Country of Origin.", "RiskScore": "Overall Risk Score (0-10). Higher=More Risk.\nRed(>6.5), Yellow(3.6-6.5), Green(<=3.5).\nFactors: Sourcing, Stock, LeadTime, Lifecycle, Geo.", "TariffPct": "Estimated Tariff Rate (%) based on COO/HTS.", "BestCostPer": "Lowest Unit Cost ($) found for the chosen 'Actual Buy Qty'.", "BestTotalCost": "Lowest Total Cost ($) for the 'Actual Buy Qty' (may include price break optimization).", "ActualBuyQty": "Quantity chosen for the 'Best Total Cost' calculation (may be > QtyNeed due to MOQ or price breaks).", "BestCostLT": "Lead Time (days) for the Best Total Cost option.", "BestCostSrc": "Supplier for the Best Total Cost option.", "FastestLT": "Shortest Lead Time (days) found.", "FastestCost": "Total Cost ($) for the Fastest Lead Time option.", "FastestLTSrc": "Supplier for the Fastest Lead Time option.", "Alternates": "Indicates if potential alternates were found (via DigiKey). Double-click row to view.", "Notes": "Additional notes: Stock Gap, EOL/Discontinued flags, Buy-up reasons." }
 
-        self.tree = ttk.Treeview(tree_frame_outer, columns=columns, show="headings", height=18, selectmode="browse")
-
-        # Setup Treeview Columns and Headings with Tooltips
+        self.tree_hsb = ttk.Scrollbar(tree_frame_outer, orient="horizontal") 
+        self.tree_vsb = ttk.Scrollbar(tree_frame_outer, orient="vertical")   
+        self.tree_column_tooltips = {}; 
+        self.tree = ttk.Treeview(tree_frame_outer, columns=columns, show="headings", height=18, selectmode="browse",
+                                  yscrollcommand=self.tree_vsb.set, xscrollcommand=self.tree_hsb.set)
+       
+        self.tree_hsb.config(command=self.tree.xview)
+        self.tree_vsb.config(command=self.tree.yview)
+        self.tree_hsb.pack(side=tk.BOTTOM, fill=tk.X)     
+        self.tree_vsb.pack(side=tk.RIGHT, fill=tk.Y)      
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True) 
+        
         for col, heading in zip(columns, headings):
-            width = col_widths.get(col, 90)
-            align = col_align.get(col, 'w') # Default left alignment for content
-            self.tree.heading(col, text=heading, command=lambda c=col: self.sort_treeview(self.tree, c, False), anchor='center') # Center align headings
-            self.tree.column(col, width=width, minwidth=40, stretch=True, anchor=align) # Align content
-            
-            self.tree_column_tooltips = {} # Store tooltips for tree columns
-        # Setup Treeview Columns and Headings with Tooltips stored for later lookup
-        for col, heading in zip(columns, headings):
-            width = col_widths.get(col, 90)
-            align = col_align.get(col, 'w') # Default left alignment for content
-            self.tree.heading(col, text=heading, command=lambda c=col: self.sort_treeview(self.tree, c, False), anchor='center') # Center align headings
-            self.tree.column(col, width=width, minwidth=40, stretch=True, anchor=align) # Align content
-
-            # Store the tooltip text associated with the column identifier ('PartNumber', 'Manufacturer', etc.)
-            tooltip_text = col_tooltips.get(col, heading)
+            width = col_widths.get(col, 90); align = col_align.get(col, 'w'); tooltip_text = col_tooltips.get(col, heading)
+            self.tree.heading(col, text=heading, command=lambda c=col: self.sort_treeview(self.tree, c, False), anchor='center')
+            self.tree.column(col, width=width, minwidth=10, stretch=True, anchor=align)
             self.tree_column_tooltips[col] = tooltip_text
-
-        # Treeview Scrollbars
-        self.tree_vsb = ttk.Scrollbar(tree_frame_outer, orient="vertical", command=self.tree.yview)
-        self.tree_hsb = ttk.Scrollbar(tree_frame_outer, orient="horizontal", command=self.tree.xview)
-        self.tree.configure(yscrollcommand=self.tree_vsb.set, xscrollcommand=self.tree_hsb.set)
-
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        self.tree_vsb.grid(row=0, column=1, sticky="ns")
-        self.tree_hsb.grid(row=1, column=0, sticky="ew")
-
-        # Risk Color Tags
-        self.tree.tag_configure('high_risk', background='#ffdddd') # Lighter red
-        self.tree.tag_configure('moderate_risk', background='#ffffcc') # Light yellow
-        self.tree.tag_configure('low_risk', background='#ddffdd') # Lighter green
-        self.tree.tag_configure('na_risk', background='#f0f0f0') # Gray for N/A
-        self.tree.bind("<Motion>", self._on_treeview_motion); 
-        self.tree.bind("<Leave>", self._on_treeview_leave);
-        self.tree.bind("<Double-Button-1>", self.show_alternates_popup)
-
-        # Instructions / Export Button Frame Below Tree
-        tree_actions_frame = ttk.Frame(self.analysis_tab)
-        tree_actions_frame.grid(row=1, column=0, sticky="ew", pady=(5, 10))
-        alt_instruct_label = ttk.Label(tree_actions_frame, text="Double-click row for alternates.", style="Hint.TLabel")
-        alt_instruct_label.pack(side=tk.LEFT, padx=(5, 0))
         
-        self.tree.bind("<Motion>", self._on_treeview_motion)
-        self.tree.bind("<Leave>", self._on_treeview_leave)
+        self.tree.tag_configure('high_risk', background='#fee2e2');
+        self.tree.tag_configure('moderate_risk', background='#fef3c7'); self.tree.tag_configure('low_risk', background='#dcfce7'); self.tree.tag_configure('na_risk', background='#f3f4f6')
+        self.tree.bind("<Motion>", self._on_treeview_motion);
+        self.tree.bind("<Leave>", self._on_treeview_leave); 
         self.tree.bind("<Double-Button-1>", self.show_alternates_popup)
-
-        ttk.Separator(self.analysis_tab, orient=tk.HORIZONTAL).grid(row=2, column=0, sticky="ew", pady=(10, 10), padx=5)
-
-        # -- Analysis Summary Table --
-        self.analysis_pane.add(tree_frame_outer, weight=3) # Give Treeview more initial weight
-        self.analysis_table_frame = ttk.LabelFrame(self.analysis_pane, text="BOM Summary Metrics", padding=(10, 5)) # Add padding
-        self.analysis_table_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 0))
-        self.analysis_table_frame.grid_columnconfigure(0, weight=1)
-        self.analysis_table_frame.grid_rowconfigure(0, weight=1) # Allow table to resize vertically
-
-        self.analysis_table = ttk.Treeview(self.analysis_table_frame, columns=["Metric", "Value"], show="headings", height=15, selectmode="browse") 
-        self.analysis_table.heading("Metric", text="Metric", anchor='w')
-        self.analysis_table.heading("Value", text="Value", anchor='w')
-        self.analysis_table.column("Metric", width=300, stretch=False, anchor='w')
-        self.analysis_table.column("Value", width=450, stretch=True, anchor='w') # Allow value to stretch
+        self.analysis_pane.add(tree_frame_outer, weight=3)
+        
+        # -- Bottom Pane: Analysis Summary Table --
+        self.analysis_table_frame = ttk.LabelFrame(self.analysis_pane, text="BOM Summary Metrics", padding=(10, 5))
+        self.analysis_table_frame.grid_columnconfigure(0, weight=1); self.analysis_table_frame.grid_rowconfigure(0, weight=1)
+        self.analysis_table = ttk.Treeview(self.analysis_table_frame, columns=["Metric", "Value"], show="headings", height=10, selectmode="browse")
+        self.analysis_table.heading("Metric", text="Metric", anchor='w'); self.analysis_table.heading("Value", text="Value", anchor='w')
+        self.analysis_table.column("Metric", width=280, stretch=False, anchor='w'); self.analysis_table.column("Value", width=450, stretch=True, anchor='w')
         self.analysis_table_scrollbar = ttk.Scrollbar(self.analysis_table_frame, orient="vertical", command=self.analysis_table.yview)
-        self.analysis_table.configure(yscrollcommand=self.analysis_table_scrollbar.set)
-        self.analysis_table.grid(row=0, column=0, sticky="nsew")
+        self.analysis_table.configure(yscrollcommand=self.analysis_table_scrollbar.set); 
+        self.analysis_table.grid(row=0, column=0, sticky="nsew"); 
         self.analysis_table_scrollbar.grid(row=0, column=1, sticky="ns")
-
-        # Bind hover events for tooltips on the summary table rows
-        self.analysis_table.bind("<Enter>", self._on_widget_enter, add='+') # Reuse universal enter/leave
-        self.analysis_table.bind("<Leave>", self._on_widget_leave, add='+')
-        self.analysis_table.bind("<Motion>", self._on_summary_table_motion, add='+') # Track motion for specific row
-
-        self.analysis_pane.add(self.analysis_table_frame, weight=2) # Give summary reasonable initial weight
-
-        # -- Export Strategy Buttons -- (Use a dedicated frame)
+        self.analysis_table.bind("<Enter>", self._on_widget_enter, add='+'); 
+        self.analysis_table.bind("<Leave>", self._on_widget_leave, add='+'); 
+        self.analysis_table.bind("<Motion>", self._on_summary_table_motion, add='+')
+        self.analysis_pane.add(self.analysis_table_frame, weight=2)
+        
+        # -- Export Buttons (Below the PanedWindow) --
         export_buttons_main_frame = ttk.LabelFrame(self.analysis_tab, text="Export Options", padding=(10,5))
-        export_buttons_main_frame.grid(row=4, column=0, sticky="ew", pady=(10, 5)) # New row below summary
-        # Frame for Strategy Exports
-        export_strategy_frame = ttk.Frame(export_buttons_main_frame)
-        export_strategy_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-
-        ttk.Label(export_strategy_frame, text="Export Strategy:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 5))
-        
-        export_parts_frame = ttk.Frame(export_buttons_main_frame)
-        export_parts_frame.pack(side=tk.LEFT, padx=5)
-
-        self.lowest_cost_strict_btn = ttk.Button(export_strategy_frame, text="Strict Lowest Cost",
-            command=lambda key="Strict Lowest Cost": self.export_strategy_gui(key), state="disabled") # Pass internal key
-        self.lowest_cost_strict_btn.pack(side=tk.LEFT, padx=3)
-        self.create_tooltip(self.lowest_cost_strict_btn, "Export CSV for 'Strict Lowest Cost' strategy (absolute minimum cost without buy-ups).")
-
-        self.in_stock_btn = ttk.Button(export_strategy_frame, text="Lowest Cost In Stock",
-            command=lambda key="Lowest Cost In Stock": self.export_strategy_gui(key), state="disabled") # Pass internal key
-        self.in_stock_btn.pack(side=tk.LEFT, padx=3)
-        self.create_tooltip(self.in_stock_btn, "Export CSV for 'Lowest Cost In Stock' strategy (cheapest from available stock).")
-
-        self.with_lt_btn = ttk.Button(export_strategy_frame, text="Lowest Cost w/ LT",
-            command=lambda key="Lowest Cost with Lead Time": self.export_strategy_gui(key), state="disabled") # Pass internal key
-        self.with_lt_btn.pack(side=tk.LEFT, padx=3)
-        self.create_tooltip(self.with_lt_btn, "Export CSV for 'Lowest Cost with Lead Time' strategy (cheapest with stock or finite LT).")
-
-        self.fastest_btn = ttk.Button(export_strategy_frame, text="Fastest",
-            command=lambda key="Fastest": self.export_strategy_gui(key), state="disabled") # Pass internal key
-        self.fastest_btn.pack(side=tk.LEFT, padx=3)
-        self.create_tooltip(self.fastest_btn, "Export CSV for 'Fastest' strategy (prioritizes shortest lead time per part).")
-
-        self.optimized_strategy_btn = ttk.Button(export_strategy_frame, text="Optimized",
-            command=lambda key="Optimized Strategy": self.export_strategy_gui(key), state="disabled") # Pass internal key
-        self.optimized_strategy_btn.pack(side=tk.LEFT, padx=3)
-        self.create_tooltip(self.optimized_strategy_btn, "Export CSV for 'Optimized Strategy' (balances cost, lead time, constraints, and potential buy-ups).")
-
+        export_buttons_main_frame.grid(row=1, column=0, sticky="ew", pady=(10, 5), padx=0)
+        export_strategy_frame = ttk.Frame(export_buttons_main_frame); export_strategy_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        ttk.Label(export_strategy_frame, text="Strategy:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 5))
+        self.lowest_cost_strict_btn = ttk.Button(export_strategy_frame, text="Strict Cost", command=lambda key="Strict Lowest Cost": self.export_strategy_gui(key), state="disabled"); self.lowest_cost_strict_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.lowest_cost_strict_btn, "Export CSV for 'Strict Lowest Cost' strategy.")
+        self.in_stock_btn = ttk.Button(export_strategy_frame, text="In Stock", command=lambda key="Lowest Cost In Stock": self.export_strategy_gui(key), state="disabled"); self.in_stock_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.in_stock_btn, "Export CSV for 'Lowest Cost In Stock' strategy.")
+        self.with_lt_btn = ttk.Button(export_strategy_frame, text="w/ LT", command=lambda key="Lowest Cost with Lead Time": self.export_strategy_gui(key), state="disabled"); self.with_lt_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.with_lt_btn, "Export CSV for 'Lowest Cost with Lead Time' strategy.")
+        self.fastest_btn = ttk.Button(export_strategy_frame, text="Fastest", command=lambda key="Fastest": self.export_strategy_gui(key), state="disabled"); self.fastest_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.fastest_btn, "Export CSV for 'Fastest' strategy.")
+        self.optimized_strategy_btn = ttk.Button(export_strategy_frame, text="Optimized", command=lambda key="Optimized Strategy": self.export_strategy_gui(key), state="disabled"); self.optimized_strategy_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.optimized_strategy_btn, "Export CSV for 'Optimized Strategy'.")
         ttk.Separator(export_buttons_main_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=5)
-
-        # Frame for exporting the main analysis view
-        export_parts_frame = ttk.Frame(export_buttons_main_frame)
-        export_parts_frame.pack(side=tk.LEFT, padx=5)
-
-        self.export_parts_list_btn = ttk.Button(export_parts_frame, text="BOM Analysis View", command=self.export_treeview_data, state="disabled")
-        self.export_parts_list_btn.pack(side=tk.LEFT)
-        self.create_tooltip(self.export_parts_list_btn, "Export the current data shown in the main BOM Analysis parts list table to a CSV file.")
-
-        # --- Set initial sash position (AFTER mainloop starts) ---
-        # Adjust the pixel value (e.g., 350) to control the initial split
-        # Lower value gives more space to the bottom pane (summary)
-        initial_analysis_sash_pos = 350
-        self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
-
+        export_parts_frame = ttk.Frame(export_buttons_main_frame); export_parts_frame.pack(side=tk.RIGHT, padx=(5, 0))
+        self.export_parts_list_btn = ttk.Button(export_parts_frame, text="Export View", command=self.export_treeview_data, state="disabled"); self.export_parts_list_btn.pack(side=tk.LEFT); self.create_tooltip(self.export_parts_list_btn, "Export the current data shown in the main BOM Analysis parts list table to a CSV file.")
         
-
+        # --- Set initial sash position ---
+        initial_analysis_sash_pos = 400
+        self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
+        
         # --- Tab 2: AI & Predictive Analysis ---
         self.predictive_tab = ttk.Frame(self.results_notebook, padding=10)
         self.results_notebook.add(self.predictive_tab, text=" AI & Predictions ")
-        self.predictive_tab.grid_rowconfigure(1, weight=1) # Prediction Table Frame takes weight
-        self.predictive_tab.grid_rowconfigure(2, weight=0) # Accuracy Frame fixed size
-        self.predictive_tab.grid_columnconfigure(0, weight=1)
-
-        # -- AI Summary Text Area --
+        self.predictive_tab.grid_rowconfigure(0, weight=1); self.predictive_tab.grid_rowconfigure(1, weight=0); self.predictive_tab.grid_rowconfigure(2, weight=2); self.predictive_tab.grid_rowconfigure(3, weight=0); self.predictive_tab.grid_columnconfigure(0, weight=1)
         ai_frame = ttk.LabelFrame(self.predictive_tab, text="AI Analysis & Recommendations", padding=5)
-        ai_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
-        ai_frame.grid_rowconfigure(0, weight=1)
-        ai_frame.grid_columnconfigure(0, weight=1)
-        self.ai_summary_text = scrolledtext.ScrolledText(
-            ai_frame,
-            wrap=tk.WORD,
-            height=16,
-            font=("Segoe UI", 9),
-            relief="solid",
-            borderwidth=1,
-            state='disabled',
-            background="#f8f8f8",  # Keep light background
-            foreground="black"      # Explicitly set text color to black
-        )
+        ai_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10)); ai_frame.grid_rowconfigure(0, weight=1); ai_frame.grid_columnconfigure(0, weight=1)
+        self.ai_summary_text = scrolledtext.ScrolledText(ai_frame, wrap=tk.WORD, height=25, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), relief="solid", borderwidth=1, state='disabled', background="#fdfdfd", foreground="#111827")
         self.ai_summary_text.grid(row=0, column=0, sticky="nsew")
         self.ai_summary_text.insert(tk.END, "Run analysis and then click 'AI Summary' (requires OpenAI key).")
-
         ttk.Separator(self.predictive_tab, orient=tk.HORIZONTAL).grid(row=1, column=0, sticky="ew", pady=(10, 10), padx=5)
-        
-        # -- Predictions and Human Input Table --
         pred_update_frame = ttk.LabelFrame(self.predictive_tab, text="Predictions vs Actuals", padding=5)
-        pred_update_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10))
-        pred_update_frame.grid_columnconfigure(0, weight=1)
-        pred_update_frame.grid_rowconfigure(1, weight=1) # Table takes available space
-
-        # Treeview for Predictions
-        pred_tree_frame = ttk.Frame(pred_update_frame) # Frame for tree + scrollbars
-        pred_tree_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(5,5))
-        pred_tree_frame.grid_rowconfigure(0, weight=1)
+        pred_update_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10)); 
+        pred_update_frame.grid_columnconfigure(0, weight=1);    pred_update_frame.grid_rowconfigure(1, weight=1)
+        pred_tree_frame = ttk.Frame(pred_update_frame); pred_tree_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(5,5)); 
+        pred_tree_frame.grid_rowconfigure(0, weight=1);
         pred_tree_frame.grid_columnconfigure(0, weight=1)
-
-        # Define Prediction Table Columns
-        pred_col_widths = {c: 75 for c in self.pred_header} # Default width
-        pred_col_widths.update({ # Specific widths
-            'Component': 180, 'Date': 80, 'Stock_Probability': 65,
-            'Real_Lead': 60, 'Real_Cost': 70, 'Real_Stock': 60,
-            'Prophet_Ld_Acc': 60, 'Prophet_Cost_Acc': 60,
-            'RAG_Ld_Acc': 60, 'RAG_Cost_Acc': 60,
-            'AI_Ld_Acc': 60, 'AI_Cost_Acc': 60,
-        })
-        pred_col_align = {c: 'center' for c in self.pred_header} # Default center
-        pred_col_align.update({'Component': 'w'}) # Left align component name
-
-        pred_col_tooltips = { # Tooltips for prediction table columns
-            'Component': 'Consolidated Component Name (Mfg + MPN)',
-            'Date': 'Date the prediction was generated.',
-            'Prophet_Lead': 'Lead time prediction (days) from Prophet model.',
-            'Prophet_Cost': 'Unit cost prediction ($) from Prophet model.',
-            'RAG_Lead': 'Lead time prediction range (days) from RAG model (mock).',
-            'RAG_Cost': 'Unit cost prediction range ($) from RAG model (mock).',
-            'AI_Lead': 'Combined AI lead time prediction (days) (mock).',
-            'AI_Cost': 'Combined AI unit cost prediction ($) (mock).',
-            'Stock_Probability': 'Predicted probability (%) of finding sufficient stock.',
-            'Real_Lead': 'ACTUAL observed lead time (days). Enter value here.',
-            'Real_Cost': 'ACTUAL unit cost ($) paid. Enter value here.',
-            'Real_Stock': 'Was sufficient stock ACTUALLY available? Select True/False here.',
-            'Prophet_Ld_Acc': 'Accuracy (%) of Prophet Lead Time vs Actual.',
-            'Prophet_Cost_Acc': 'Accuracy (%) of Prophet Cost vs Actual.',
-            'RAG_Ld_Acc': 'Accuracy (%) of RAG Lead Time vs Actual.',
-            'RAG_Cost_Acc': 'Accuracy (%) of RAG Cost vs Actual.',
-            'AI_Ld_Acc': 'Accuracy (%) of AI Lead Time vs Actual.',
-            'AI_Cost_Acc': 'Accuracy (%) of AI Cost vs Actual.',
-        }
-
-        self.predictions_tree = ttk.Treeview(pred_tree_frame, columns=self.pred_header, show="headings", height=10, selectmode="browse")
-
+        pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal") 
+        pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical")   
+        pred_col_widths = {c: 75 for c in self.pred_header}; pred_col_widths.update({'Component': 180, 'Date': 80, 'Stock_Probability': 65, 'Real_Lead': 60, 'Real_Cost': 70, 'Real_Stock': 60, 'Prophet_Ld_Acc': 60, 'Prophet_Cost_Acc': 60, 'RAG_Ld_Acc': 60, 'RAG_Cost_Acc': 60, 'AI_Ld_Acc': 60, 'AI_Cost_Acc': 60})
+        pred_col_align = {c: 'center' for c in self.pred_header}; pred_col_align.update({'Component': 'w'})
+        pred_col_tooltips = {'Component': 'Consolidated Component Name (Mfg + MPN)', 'Date': 'Date prediction generated.', 'Prophet_Lead': 'Prophet Lead Time (d)', 'Prophet_Cost': 'Prophet Unit Cost ($)', 'RAG_Lead': 'RAG Lead Time Range (d)', 'RAG_Cost': 'RAG Unit Cost Range ($)', 'AI_Lead': 'AI Combined Lead Time (d)', 'AI_Cost': 'AI Combined Unit Cost ($)', 'Stock_Probability': 'Predicted Stock Probability (%)', 'Real_Lead': 'ACTUAL Lead Time (d)', 'Real_Cost': 'ACTUAL Unit Cost ($)', 'Real_Stock': 'ACTUAL Stock OK?', 'Prophet_Ld_Acc': 'Prophet LT Acc %', 'Prophet_Cost_Acc': 'Prophet Cost Acc %', 'RAG_Ld_Acc': 'RAG LT Acc %', 'RAG_Cost_Acc': 'RAG Cost Acc %', 'AI_Ld_Acc': 'AI LT Acc %', 'AI_Cost_Acc': 'AI Cost Acc %'}
+        self.predictions_tree = ttk.Treeview(pred_tree_frame, columns=self.pred_header, show="headings", height=10, selectmode="browse",                                              yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set)
+        
         self.pred_column_tooltips = {}
         for col in self.pred_header:
-            width = pred_col_widths.get(col, 75)
-            align = pred_col_align.get(col, 'center')
-            heading_text = col.replace('_',' ')
-            self.predictions_tree.heading(col, text=heading_text, anchor='center') # Set heading text
-            self.predictions_tree.column(col, width=width, minwidth=40, stretch=False, anchor=align) # Align cell content
-            
-            tooltip_text = pred_col_tooltips.get(col, heading_text) # Get tooltip text
-            self.pred_column_tooltips[col] = tooltip_text # Store it
+            width = pred_col_widths.get(col, 75); align = pred_col_align.get(col, 'center'); heading_text = col.replace('_',' '); tooltip_text = pred_col_tooltips.get(col, heading_text)
+            self.predictions_tree.heading(col, text=heading_text, anchor='center')
+            self.predictions_tree.column(col, width=width, minwidth=10, stretch=False, anchor=align)
+            self.pred_column_tooltips[col] = tooltip_text
+        pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical", command=self.predictions_tree.yview); pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal", command=self.predictions_tree.xview)
+        self.predictions_tree.configure(yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set); 
+        # Configure scrollbar commands
+        pred_hsb.config(command=self.predictions_tree.xview)
+        pred_vsb.config(command=self.predictions_tree.yview)
 
-
-        # Prediction Treeview Scrollbars
-        pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical", command=self.predictions_tree.yview)
-        pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal", command=self.predictions_tree.xview)
-        self.predictions_tree.configure(yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set)
-        pred_vsb.grid(row=0, column=1, sticky="ns")
-        pred_hsb.grid(row=1, column=0, sticky="ew")
-        self.predictions_tree.grid(row=0, column=0, sticky="nsew")
-
-        # Action Buttons Below Prediction Table
-        pred_actions_frame = ttk.Frame(pred_update_frame)
-        pred_actions_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(10, 5))
-        load_pred_button = ttk.Button(pred_actions_frame, text="Load / Refresh Predictions", command=self.load_predictions_to_gui)
-        load_pred_button.pack(side=tk.LEFT, padx=(0, 10))
-        self.create_tooltip(load_pred_button, f"Load/Reload prediction data from {PREDICTION_FILE.name} into the table above.")
-
-        # Frame for entering actuals
-        update_inputs_frame = ttk.Frame(pred_actions_frame)
-        update_inputs_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        ttk.Label(update_inputs_frame, text="Update Actuals for Selected Row ->").pack(side=tk.LEFT, padx=(0,5))
-
-        lbl_actual_lead = ttk.Label(update_inputs_frame, text="Lead (d):"); lbl_actual_lead.pack(side=tk.LEFT, padx=(0,2))
-        self.real_lead_entry = ttk.Entry(update_inputs_frame, width=6); self.real_lead_entry.pack(side=tk.LEFT, padx=(0,5))
-        self.create_tooltip(lbl_actual_lead, "Enter the ACTUAL observed lead time (in days).")
-        self.create_tooltip(self.real_lead_entry, "Enter the ACTUAL observed lead time (in days).")
-
-        lbl_actual_cost = ttk.Label(update_inputs_frame, text="Cost ($):"); lbl_actual_cost.pack(side=tk.LEFT, padx=(0,2))
-        self.real_cost_entry = ttk.Entry(update_inputs_frame, width=8); self.real_cost_entry.pack(side=tk.LEFT, padx=(0,5))
-        self.create_tooltip(lbl_actual_cost, "Enter the ACTUAL unit cost ($) paid.")
-        self.create_tooltip(self.real_cost_entry, "Enter the ACTUAL unit cost ($) paid.")
-
-        lbl_actual_stock = ttk.Label(update_inputs_frame, text="Stock OK?:"); lbl_actual_stock.pack(side=tk.LEFT, padx=(0,2))
-        self.real_stock_var = tk.StringVar(value="?") # ?, True, False
-        self.real_stock_combo = ttk.Combobox(update_inputs_frame, textvariable=self.real_stock_var, values=["?", "True", "False"], width=5, state='readonly'); self.real_stock_combo.pack(side=tk.LEFT, padx=(0,10))
-        self.create_tooltip(lbl_actual_stock, "Select if sufficient stock was ACTUALLY available.")
-        self.create_tooltip(self.real_stock_combo, "Select if sufficient stock was ACTUALLY available (True/False).")
-
-        self.save_pred_update_btn = ttk.Button(update_inputs_frame, text="Save Actuals", command=self.save_prediction_updates, state="disabled")
-        self.save_pred_update_btn.pack(side=tk.LEFT)
-        self.create_tooltip(self.save_pred_update_btn, "Save the entered Actual values to the predictions CSV for the selected row.")
-
-        # Label to show selected prediction row ID (for debugging/info)
-        self.selected_pred_id_label = ttk.Label(pred_actions_frame, text=" ", style="Hint.TLabel")
-        self.selected_pred_id_label.pack(side=tk.RIGHT, padx=(5, 0))
-
-        # Bind selection event
-        self.predictions_tree.bind("<Motion>", self._on_predictions_tree_motion)
-        self.predictions_tree.bind("<Leave>", self._on_predictions_tree_leave)
-        self.predictions_tree.bind('<<TreeviewSelect>>', self.on_prediction_select)
-
-        # -- Average Accuracy Display --
+        # Pack the widgets
+        pred_hsb.pack(side=tk.BOTTOM, fill=tk.X)
+        pred_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.predictions_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        pred_actions_frame = ttk.Frame(pred_update_frame); pred_actions_frame.grid(row=2, column=0, columnspan=2, sticky='ew', pady=(10, 5))
+        load_pred_button = ttk.Button(pred_actions_frame, text="Load / Refresh", command=self.load_predictions_to_gui); load_pred_button.pack(side=tk.LEFT, padx=(0, 10)); self.create_tooltip(load_pred_button, f"Load/Reload prediction data from {PREDICTION_FILE.name}.")
+        update_inputs_frame = ttk.Frame(pred_actions_frame); update_inputs_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Label(update_inputs_frame, text="Update Actuals ->").pack(side=tk.LEFT, padx=(0,5))
+        lbl_actual_lead = ttk.Label(update_inputs_frame, text="Lead:"); lbl_actual_lead.pack(side=tk.LEFT, padx=(0,2)); self.real_lead_entry = ttk.Entry(update_inputs_frame, width=6, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_lead_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_lead_entry, "Enter ACTUAL observed lead time (days).")
+        lbl_actual_cost = ttk.Label(update_inputs_frame, text="Cost:"); lbl_actual_cost.pack(side=tk.LEFT, padx=(0,2)); self.real_cost_entry = ttk.Entry(update_inputs_frame, width=8, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_cost_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_cost_entry, "Enter ACTUAL unit cost ($).")
+        lbl_actual_stock = ttk.Label(update_inputs_frame, text="Stock OK?:"); lbl_actual_stock.pack(side=tk.LEFT, padx=(0,2)); self.real_stock_var = tk.StringVar(value="?"); self.real_stock_combo = ttk.Combobox(update_inputs_frame, textvariable=self.real_stock_var, values=["?", "True", "False"], width=5, state='readonly', font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_stock_combo.pack(side=tk.LEFT, padx=(0,10)); self.create_tooltip(self.real_stock_combo, "Select if sufficient stock was ACTUALLY available.")
+        self.save_pred_update_btn = ttk.Button(update_inputs_frame, text="Save", command=self.save_prediction_updates, state="disabled"); self.save_pred_update_btn.pack(side=tk.LEFT); self.create_tooltip(self.save_pred_update_btn, "Save entered Actuals to the predictions CSV for the selected row.")
+        self.selected_pred_id_label = ttk.Label(pred_actions_frame, text=" ", style="Hint.TLabel"); self.selected_pred_id_label.pack(side=tk.RIGHT, padx=(5, 0))
+        self.predictions_tree.bind("<Motion>", self._on_predictions_tree_motion); self.predictions_tree.bind("<Leave>", self._on_predictions_tree_leave); self.predictions_tree.bind('<<TreeviewSelect>>', self.on_prediction_select)
+        
+        # Accuracy Display Frame
         avg_frame = ttk.LabelFrame(self.predictive_tab, text="Average Prediction Accuracy (%)", padding=5)
-        avg_frame.grid(row=3, column=0, sticky='nsew', pady=(5, 0))
-        avg_frame.columnconfigure((1, 2, 3, 4, 5, 6), weight=1) # Configure columns to expand
-
-        self.avg_acc_labels = {} # Holds {'Prophet_Ld': label, 'Prophet_Cost': label, ...}
-
-        # Headers for accuracy table
-        headers = ["Model", "Ld Acc", "Cost Acc", "# Points", "Ld Acc", "Cost Acc", "# Points"]
-        col_widths = [8, 8, 6, 8, 8, 6]
+        avg_frame.grid(row=3, column=0, sticky='nsew', pady=(5, 0)); avg_frame.columnconfigure((1, 2, 3, 4), weight=1)
+        self.avg_acc_labels = {}
+        headers = ["Model", "Ld Acc", "Cost Acc", "# Points"]
         models = ["Prophet", "RAG", "AI"]
-        ttk.Label(avg_frame, text=" ", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky='w', padx=5) # Spacer
-        ttk.Label(avg_frame, text="Lead Time", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=1, columnspan=3, sticky='ew')
-        ttk.Label(avg_frame, text="Cost", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=4, columnspan=3, sticky='ew')
+        ttk.Label(avg_frame, text=" ", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky='w', padx=5)
+        ttk.Label(avg_frame, text="Lead Time", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=1, columnspan=2, sticky='ew')
+        ttk.Label(avg_frame, text="Cost", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=3, columnspan=2, sticky='ew')
         ttk.Label(avg_frame, text="Model", font=("Segoe UI", 8, "bold")).grid(row=1, column=0, sticky='w', padx=5, pady=(0,3))
         ttk.Label(avg_frame, text="Avg Acc%", font=("Segoe UI", 8, "bold")).grid(row=1, column=1, sticky='ew', pady=(0,3))
         ttk.Label(avg_frame, text="# Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=2, sticky='ew', pady=(0,3))
         ttk.Label(avg_frame, text="Avg Acc%", font=("Segoe UI", 8, "bold")).grid(row=1, column=3, sticky='ew', pady=(0,3))
         ttk.Label(avg_frame, text="# Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=4, sticky='ew', pady=(0,3))
-
-        # Create labels for each model
+        
         for i, model in enumerate(models):
             row_num = i + 2
             ttk.Label(avg_frame, text=f"{model}:").grid(row=row_num, column=0, sticky='w', padx=5)
-
-            # Lead Time Accuracy
-            ld_key = f"{model}_Ld"
-            ld_label = ttk.Label(avg_frame, text="N/A", width=col_widths[1], anchor='e', relief='sunken', background="#f0f0f0")
-            ld_label.grid(row=row_num, column=1, sticky='ew', padx=2)
-            self.avg_acc_labels[ld_key] = ld_label
-            self.create_tooltip(ld_label, f"Average accuracy of {model} lead time predictions vs actuals.")
-
-            # Lead Time Count
-            ld_count_key = f"{model}_Ld_Count"
-            ld_count_label = ttk.Label(avg_frame, text="0", width=col_widths[2], anchor='e', relief='sunken', background="#f0f0f0")
-            ld_count_label.grid(row=row_num, column=2, sticky='ew', padx=2)
-            self.avg_acc_labels[ld_count_key] = ld_count_label
-            self.create_tooltip(ld_count_label, f"Number of data points used for {model} Lead Time accuracy.")
-
-            # Cost Accuracy
-            cost_key = f"{model}_Cost"
-            cost_label = ttk.Label(avg_frame, text="N/A", width=col_widths[3], anchor='e', relief='sunken', background="#f0f0f0")
-            cost_label.grid(row=row_num, column=3, sticky='ew', padx=2)
-            self.avg_acc_labels[cost_key] = cost_label
-            self.create_tooltip(cost_label, f"Average accuracy of {model} cost predictions vs actuals.")
-
-            # Cost Count
-            cost_count_key = f"{model}_Cost_Count"
-            cost_count_label = ttk.Label(avg_frame, text="0", width=col_widths[4], anchor='e', relief='sunken', background="#f0f0f0")
-            cost_count_label.grid(row=row_num, column=4, sticky='ew', padx=2)
-            self.avg_acc_labels[cost_count_key] = cost_count_label
-            self.create_tooltip(cost_count_label, f"Number of data points used for {model} Cost accuracy.")
-
-
+            ld_key = f"{model}_Ld"; ld_count_key = f"{model}_Ld_Count"; cost_key = f"{model}_Cost"; cost_count_key = f"{model}_Cost_Count"
+            ld_label = ttk.Label(avg_frame, text="N/A", width=8, anchor='e', relief='sunken', background="#f8f9fa"); ld_label.grid(row=row_num, column=1, sticky='ew', padx=2); self.avg_acc_labels[ld_key] = ld_label; self.create_tooltip(ld_label, f"{model} LT Acc")
+            ld_count_label = ttk.Label(avg_frame, text="0", width=6, anchor='e', relief='sunken', background="#f8f9fa"); ld_count_label.grid(row=row_num, column=2, sticky='ew', padx=2); self.avg_acc_labels[ld_count_key] = ld_count_label; self.create_tooltip(ld_count_label, f"{model} LT Pts")
+            cost_label = ttk.Label(avg_frame, text="N/A", width=8, anchor='e', relief='sunken', background="#f8f9fa"); cost_label.grid(row=row_num, column=3, sticky='ew', padx=2); self.avg_acc_labels[cost_key] = cost_label; self.create_tooltip(cost_label, f"{model} Cost Acc")
+            cost_count_label = ttk.Label(avg_frame, text="0", width=6, anchor='e', relief='sunken', background="#f8f9fa"); cost_count_label.grid(row=row_num, column=4, sticky='ew', padx=2); self.avg_acc_labels[cost_count_key] = cost_count_label; self.create_tooltip(cost_count_label, f"{model} Cost Pts")
+            
         # --- Tab 3: Visualizations ---
         self.viz_tab = ttk.Frame(self.results_notebook, padding=10)
         self.results_notebook.add(self.viz_tab, text=" Visualizations ")
-        self.viz_tab.grid_columnconfigure(0, weight=1)
-        self.viz_tab.grid_rowconfigure(1, weight=1) # Canvas row gets weight
-
-        # Dropdown to select plot type
-        viz_controls_frame = ttk.Frame(self.viz_tab)
-        viz_controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        self.viz_tab.grid_columnconfigure(0, weight=1); self.viz_tab.grid_rowconfigure(1, weight=1)
+        viz_controls_frame = ttk.Frame(self.viz_tab); viz_controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         ttk.Label(viz_controls_frame, text="Select Plot:").pack(side=tk.LEFT, padx=(0, 5))
-        self.plot_type_var = tk.StringVar()
-        self.plot_combo = ttk.Combobox(viz_controls_frame, textvariable=self.plot_type_var, state="readonly", width=30)
-        self.plot_combo.pack(side=tk.LEFT, padx=(0, 10))
-        self.plot_combo.bind("<<ComboboxSelected>>", self.update_visualization)
-        # Populate later when data is ready
+        self.plot_type_var = tk.StringVar(); self.plot_combo = ttk.Combobox(viz_controls_frame, textvariable=self.plot_type_var, state="readonly", width=30); self.plot_combo.pack(side=tk.LEFT, padx=(0, 10)); self.plot_combo.bind("<<ComboboxSelected>>", self.update_visualization)
+        self.plot_frame = ttk.Frame(self.viz_tab, relief="sunken", borderwidth=1); self.plot_frame.grid(row=1, column=0, sticky="nsew")
+        self.fig_canvas = None; self.toolbar = None
 
-        # Frame for Matplotlib Canvas
-        self.plot_frame = ttk.Frame(self.viz_tab, relief="sunken", borderwidth=1)
-        self.plot_frame.grid(row=1, column=0, sticky="nsew")
-        # Canvas and Toolbar will be added here dynamically
-        self.fig_canvas = None
-        self.toolbar = None
-
-        
         # --- Instance Variables ---
-        self.bom_df = None
-        self.bom_filepath = None
-        self.analysis_results = {} # Stores {'config': {}, 'part_summaries': [], 'strategies': {}, 'summary_metrics': [], 'gui_entries': [], 'part_near_misses'[]}
-        self.strategies_for_export = {} # Separate storage populated by calculate_summary_metrics
-        self.historical_data_df = None
-        self.predictions_df = None
-        self.digikey_token_data = None
-        self.nexar_token_data = None # Added for Nexar
-        self.mouser_requests_today = 0
-        self.mouser_last_reset_date = None
-        self.mouser_daily_limit = 1000 # Default, can be adjusted
-        self.thread_pool = ThreadPoolExecutor(max_workers=MAX_API_WORKERS, thread_name_prefix="BOMWorker")
-        self.running_analysis = False # Flag to prevent concurrent runs
-        self._hts_cache = {} # HTS cache per analysis run
-        self.prediction_tree_row_map = {} # Map Treeview item ID -> original DataFrame index
-        self.tree_item_data_map = {} # Map Analysis Treeview item ID -> original dict data
-        self._active_tooltip_widget = None # Track widget for universal tooltip
+        self.bom_df = None; self.bom_filepath = None; self.analysis_results = {}; self.strategies_for_export = {};   self.historical_data_df = None
+        self.predictions_df = None; self.digikey_token_data = None; self.nexar_token_data = None; self.mouser_requests_today = 0
+        self.mouser_last_reset_date = None; self.mouser_daily_limit = 1000; self.thread_pool = ThreadPoolExecutor(max_workers=MAX_API_WORKERS, thread_name_prefix="BOMWorker")
+        self.running_analysis = False; self._hts_cache = {}; self.prediction_tree_row_map = {}; self.tree_item_data_map = {}; self._active_tooltip_widget = None
 
         # --- Initial Setup Calls ---
         self.load_mouser_request_counter()
-        self.update_rate_limit_display() # Call after loading counter
+        self.update_rate_limit_display()
         self.load_digikey_token_from_cache()
         self.load_nexar_token_from_cache()
-        self.initialize_data_files() # Call before loading predictions
-        self.load_predictions_to_gui() # Load existing predictions on start
-        self.validate_inputs() # Initial validation and button state update
-        
-        initial_sash_position = 480
-        self.root.after(100, lambda: self.main_paned_window.sashpos(0, initial_sash_position))
-        self.root.after(200, self.show_startup_guide_popup) # Short delay
+        self.initialize_data_files()
+        self.load_predictions_to_gui()
+        self.validate_inputs()
+        initial_main_sash_pos = 470
+        self.root.after(100, lambda: self.set_sash_pos(self.main_paned_window, 0, initial_main_sash_pos))
+        initial_analysis_sash_pos = 400
+        self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
+        self.root.after(200, self.show_startup_guide_popup)
         logger.info("GUI initialization complete.")
 
+        
+
+    # --- >>> ADD NEW HELPER METHOD <<< ---
     def set_sash_pos(self, pane, index, position):
         """Safely sets the sash position after the window is mapped."""
         try:
             if pane.winfo_exists():
+                # Allow geometry manager to update first
+                pane.update_idletasks()
                 pane.sashpos(index, position)
                 logger.debug(f"Set sash position for pane {pane} index {index} to {position}")
             else:
                 logger.warning(f"Attempted to set sashpos on non-existent pane: {pane}")
         except tk.TclError as e:
-             # This can happen if the window isn't fully drawn yet, retry once?
-             logger.warning(f"TclError setting sash position (will retry once): {e}")
-             self.root.after(200, lambda: self.set_sash_pos(pane, index, position)) # Retry after longer delay
+            logger.warning(f"TclError setting sash position (will retry once): {e}")
+            self.root.after(250, lambda: self.set_sash_pos(pane, index, position)) # Retry after longer delay
         except Exception as e:
-             logger.error(f"Unexpected error setting sash position: {e}", exc_info=True)
-
+            logger.error(f"Unexpected error setting sash position: {e}", exc_info=True)
+    # --- END HELPER METHOD ---
+    
 
     def show_startup_guide_popup(self):
         """Shows the initial startup guide if configured to do so."""
@@ -1227,7 +896,7 @@ class BOMAnalyzerApp:
         title_label.pack(pady=(0, 10))
 
         # Use a ScrolledText for potentially longer instructions
-        guide_text_widget = scrolledtext.ScrolledText(main_frame, wrap=tk.WORD, height=10, font=("Segoe UI", 9), relief="flat", state="normal", background=popup.cget('background'))
+        guide_text_widget = scrolledtext.ScrolledText(main_frame, wrap=tk.WORD, height=10, font=("Segoe UI", 12), relief="flat", state="normal", background=popup.cget('background'))
         guide_text = """
     Welcome! Here's a quick guide:
 
@@ -1255,21 +924,26 @@ class BOMAnalyzerApp:
         guide_text_widget.pack(fill=tk.BOTH, expand=True, pady=5)
 
 
-        # --- Bottom Frame for Checkbox and Button ---
+        # --- >>> Define bottom_frame BEFORE using it <<< ---
         bottom_frame = ttk.Frame(main_frame)
         bottom_frame.pack(fill=tk.X, pady=(10, 0))
+        # --- >>> END Definition <<< ---
 
         dont_show_var = tk.BooleanVar()
+        # Now it's safe to use bottom_frame as the parent
         dont_show_check = ttk.Checkbutton(bottom_frame, text="Don't show this again", variable=dont_show_var)
         dont_show_check.pack(side=tk.LEFT)
 
         def close_popup():
             if dont_show_var.get():
                 logger.info("Updating config to hide startup guide next time.")
-                app_config["show_startup_guide"] = False
-                save_app_config(app_config)
+                # Need to access app_config defined earlier in this method
+                current_config = load_app_config() # Reload just in case
+                current_config["show_startup_guide"] = False
+                save_app_config(current_config)
             popup.destroy()
 
+        # Now it's safe to use bottom_frame as the parent
         ok_button = ttk.Button(bottom_frame, text="OK", command=close_popup, style="Accent.TButton")
         ok_button.pack(side=tk.RIGHT)
 
@@ -2592,7 +2266,10 @@ class BOMAnalyzerApp:
     # --- BOM Loading ---
     def load_bom(self):
         """Loads BOM data from a CSV file, performs cleaning and validation."""
+        logger.info("load_bom method entered.")
+        
         if self.running_analysis:
+            logger.warning("Load BOM attempted while analysis running.")
             messagebox.showwarning("Busy", "Analysis is currently running. Please wait.")
             return
 
@@ -2600,7 +2277,11 @@ class BOMAnalyzerApp:
             title="Select BOM CSV File",
             filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
         )
-        if not filepath: return # User cancelled
+        logger.debug(f"File dialog returned: {filepath}") # Log after dialog
+        
+        if not filepath: 
+            logger.info("Load BOM cancelled by user (no filepath selected).")
+            return # User cancelled
 
         try:
             self.update_status_threadsafe("Loading BOM...", "info")
@@ -3365,7 +3046,7 @@ class BOMAnalyzerApp:
         Searches DigiKey using Keyword, filters results, extracts data defensively.
         Combines working structure with robustness fixes. V12 - Added MPN Debug
         """
-        # ... (Token check and API call setup - same as previous fix) ...
+        # ... (Token check and API call setup) ...
         if not API_KEYS["DigiKey"]: return None
         access_token = self.get_digikey_token() # This might block/trigger OAuth
         if not access_token:
@@ -3477,8 +3158,7 @@ class BOMAnalyzerApp:
             datasheet_url = best_match_dict.get("DatasheetUrl", "N/A")
             digikey_pn_base = best_match_dict.get("DigiKeyProductNumber", "N/A")
 
-            # ... (Variation Handling, Lead Time, Pricing, Status, COO/HTS, Parameters - SAME as previous fix) ...
-            # --- Variation Handling (Simplified & Safer Fallback) ---
+            # ... (Variation Handling, Lead Time, Pricing, Status, COO/HTS, Parameters) ---
             stock = int(safe_float(best_match_dict.get("QuantityAvailable", 0), default=0))
             min_order_qty = int(safe_float(best_match_dict.get("MinimumOrderQuantity", 0), default=1)) # Default MOQ 1
             package_type = "N/A"
@@ -3588,7 +3268,7 @@ class BOMAnalyzerApp:
             return result
 
         except requests.HTTPError as e:
-            # ... (Error handling same as previous fix - 401, 404, etc.) ...
+            # ... (Error handling - 401, 404, etc.) ...
              # --- Handle 401 Unauthorized ---
             if e.response is not None and e.response.status_code == 401:
                 logger.warning(f"DigiKey 401 Unauthorized for {part_number}. Token likely invalid. Will attempt refresh/re-auth on next call.")
@@ -3711,7 +3391,7 @@ class BOMAnalyzerApp:
             return result
 
         except requests.HTTPError as e:
-             # ... (Error handling remains the same as previous fix) ...
+             # ... (Error handling) ...
               # Check specifically for 401 Unauthorized / 403 Forbidden
              if e.response is not None and e.response.status_code in [401, 403]:
                  logger.error(f"Mouser API Key Invalid or Unauthorized ({e.response.status_code}). Disabling.", exc_info=False)
@@ -3786,7 +3466,7 @@ class BOMAnalyzerApp:
             # ... (rest of the error handling and data processing remains the same) ...
 
             if "errors" in data:
-                # ... (error handling as before) ...
+                # ... (error handling) ...
                 return None
 
             search_results = data.get("data", {}).get("supSearchMpn", {}).get("results", [])
@@ -4488,7 +4168,7 @@ class BOMAnalyzerApp:
                 option.get('Manufacturer', 'N/A'), option.get('ManufacturerPartNumber', 'N/A'),
                 option.get('source'),
                 option.get('lead_time', np.nan) if option.get('lead_time') != np.inf else np.nan, # Convert inf back to nan for CSV
-                option.get('unit_cost', np.nan), # Use unit_cost calculated before
+                option.get('unit_cost', np.nan), 
                 option.get('stock', 0),
                 stock_prob,
                 option.get('ApiTimestamp', datetime.now(timezone.utc).isoformat(timespec='seconds'))
@@ -4753,65 +4433,65 @@ class BOMAnalyzerApp:
         total_bom_cost_in_stock = 0.0; total_bom_cost_with_lt = 0.0
         max_lead_time_strict_min = 0; max_lead_time_min = 0; max_lead_time_fastest = 0
         max_lead_time_optimized = 0; max_lead_time_in_stock = 0; max_lead_time_with_lt = 0
+        strict_parts_count = 0; min_parts_count = 0; fastest_parts_count = 0
+        in_stock_parts_count = 0; with_lt_parts_count = 0; optimized_parts_count = 0
+        max_cost_parts_count = 0 # Tracks parts contributing a valid cost for max calculation
+        # Initialize overall invalid flags to False
         invalid_strict_min = False; invalid_min = False; invalid_max = False
         invalid_fastest = False; invalid_optimized = False; invalid_in_stock = False
         invalid_with_lt = False
-        clear_to_build_stock_only = True; time_to_acquire_all_parts = 0
+        clear_to_build_stock_only = True # Assume true initially
+        time_to_acquire_all_parts = 0 # Start at 0, will be updated with max lead time needed
         stock_gap_parts = []; parts_with_stock_avail = 0
         total_parts_analyzed = len(part_summaries)
         strict_lowest_cost_strategy = {}; lowest_cost_strategy = {}; fastest_strategy = {}
         optimized_strategy = {}; in_stock_strategy = {}; with_lt_strategy = {}
         near_miss_info = {}
+        invalid_parts_list = [] # Track parts with no valid data at all
 
-        # --- Helper Function for Strict Cost (WITH DEBUGGING) ---
+
+        # --- Helper Function for Strict Cost ---
         def _calculate_strict_cost(qty_needed, pricing, moq):
-            func_start_time = time.time() # Time the helper
-            logger.debug(f"_strict_cost: Inputs qty={qty_needed}, moq={moq}, pricing_breaks={len(pricing) if pricing else 0}")
+            # Calculates cost for max(qty_needed, moq) without price-break buy-ups.
             try: qty_needed_int = int(qty_needed)
-            except (ValueError, TypeError):
-                 logger.warning(f"_strict_cost: Invalid qty_needed '{qty_needed}'")
-                 return np.inf, qty_needed
-            if not pricing:
-                 final_qty = max(qty_needed_int, int(safe_float(moq, default=1)))
-                 logger.warning(f"_strict_cost: No pricing data provided. Returning inf, qty={final_qty}")
-                 return np.inf, final_qty
+            except (ValueError, TypeError): return np.inf, qty_needed # Return original qty if conversion fails
+            if not pricing: return np.inf, max(qty_needed_int, int(safe_float(moq, default=1)))
 
             moq_int = max(1, int(safe_float(moq, default=1)))
             strict_order_qty = max(qty_needed_int, moq_int)
-            logger.debug(f"_strict_cost: Calculated strict_order_qty = {strict_order_qty}")
+            unit_price = np.inf
+            applicable_break = None
 
-            unit_price = np.inf; applicable_break = None
-            for i, pb in enumerate(pricing): # Assumes pricing is sorted by qty ascending
-                pb_qty = int(safe_float(pb.get('qty'), default=0)); price = safe_float(pb.get('price'), default=np.inf)
-                logger.debug(f"_strict_cost: Checking break {i}: pb_qty={pb_qty}, price={price}")
-                if pb_qty <= 0 or pd.isna(price) or price == np.inf:
-                    logger.debug(f"_strict_cost:  -> Skipping invalid break {i}")
-                    continue
+            # Sort pricing just in case it's not
+            sorted_pricing = sorted([pb for pb in pricing if isinstance(pb, dict)], key=lambda p: int(safe_float(p.get('qty'), default=0)))
+
+            for pb in sorted_pricing: # Assumes pricing is sorted
+                pb_qty = int(safe_float(pb.get('qty'), default=0))
+                price = safe_float(pb.get('price'), default=np.inf)
+                if pb_qty <= 0 or pd.isna(price) or price == np.inf: continue
+
                 if strict_order_qty >= pb_qty:
-                    applicable_break = pb
-                    logger.debug(f"_strict_cost:  -> Applicable break found: {applicable_break}")
+                    applicable_break = pb # This is the highest break LE strict_order_qty
                 else:
-                    logger.debug(f"_strict_cost:  -> Past needed qty, breaking loop.")
-                    break # Stop checking higher breaks
+                    # We've passed the quantity needed, stop checking higher breaks
+                    break
 
             if applicable_break:
                 unit_price = safe_float(applicable_break.get('price'), default=np.inf)
-                logger.debug(f"_strict_cost: Selected applicable break {applicable_break}, unit_price={unit_price}")
-            elif pricing: # Handle case where strict_order_qty is below the first price break
-                applicable_break = pricing[0]
-                unit_price = safe_float(applicable_break.get('price'), default=np.inf)
-                first_break_qty = int(safe_float(applicable_break.get('qty'), default=1))
-                logger.debug(f"_strict_cost: Needed qty below first break ({first_break_qty}). Using first break price={unit_price}")
-                if first_break_qty > 0:
-                    strict_order_qty = max(strict_order_qty, first_break_qty)
-                    logger.debug(f"_strict_cost: Adjusted strict_order_qty to first break: {strict_order_qty}")
-            else: # Should not happen if pricing validation worked
-                 logger.error("_strict_cost: Logic error - No applicable break and pricing list is empty?")
+            elif sorted_pricing:
+                # No break met or exceeded strict_order_qty, use the lowest price break
+                # but we might need to increase order qty to meet the first break's min qty
+                first_break = sorted_pricing[0]
+                first_break_qty = int(safe_float(first_break.get('qty'), default=1))
+                first_break_price = safe_float(first_break.get('price'), default=np.inf)
 
+                if first_break_qty > 0 and pd.notna(first_break_price) and first_break_price != np.inf:
+                     # If the needed qty is below the first break, we MUST order at least the first break qty
+                     strict_order_qty = max(strict_order_qty, first_break_qty)
+                     unit_price = first_break_price
+                # If even the first break is invalid, unit_price remains inf
 
             final_cost = float(unit_price) * strict_order_qty if pd.notna(unit_price) and unit_price != np.inf else np.inf
-            duration = time.time() - func_start_time
-            logger.debug(f"_strict_cost: Result -> final_cost={final_cost}, final_qty={strict_order_qty}. Took {duration:.4f}s")
             return final_cost, strict_order_qty
         # --- End Helper Function ---
 
@@ -4819,435 +4499,886 @@ class BOMAnalyzerApp:
         # --- Iterate Through Each Part Summary ---
         for i, summary in enumerate(part_summaries):
             bom_pn = summary.get('bom_pn', f'UnknownPart_{i}')
-            qty_needed = summary.get('total_qty_needed', 0)
-            options = summary.get('options', [])
-            # Pre-process lead times
-            for opt in options:
-                if isinstance(opt, dict) and pd.isna(opt.get('lead_time')): opt['lead_time'] = np.inf
-            valid_options = [opt for opt in options if isinstance(opt, dict)]
+            logger.debug(f"--- Start Summary Calcs for Part {i+1}: {bom_pn} ---")
+            try:
+                qty_needed = int(summary.get('total_qty_needed', 0))
+                if qty_needed <= 0: raise ValueError("Quantity needed must be positive")
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid or zero quantity needed for {bom_pn}. Skipping part.")
+                invalid_parts_list.append(f"{bom_pn} (Invalid Qty)")
+                # Mark all strategies as invalid due to this part
+                invalid_strict_min=invalid_min=invalid_max=invalid_fastest=invalid_optimized=invalid_in_stock=invalid_with_lt=True
+                clear_to_build_stock_only = False
+                stock_gap_parts.append(f"{bom_pn}: Invalid Qty")
+                time_to_acquire_all_parts = np.inf
+                placeholder = self.create_strategy_entry({'notes': 'Invalid Quantity Needed'})
+                for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
+                                      optimized_strategy, in_stock_strategy, with_lt_strategy]:
+                    strategy_dict[bom_pn] = placeholder
+                continue # Skip to next part
 
-            if not valid_options:
-                # ... (Handle No Valid Options - same as before) ...
-                 continue
+            options = summary.get('options', [])
+            # Pre-process lead times: NaN/None -> Inf, ensure numeric type
+            for opt in options:
+                if isinstance(opt, dict):
+                    lt = opt.get('lead_time')
+                    if lt is None or pd.isna(lt):
+                        opt['lead_time'] = np.inf
+                    else:
+                        try:
+                            opt['lead_time'] = float(lt) # Ensure it's a float
+                            if opt['lead_time'] < 0: opt['lead_time'] = np.inf # Negative lead time is invalid
+                        except (ValueError, TypeError):
+                             opt['lead_time'] = np.inf # Treat non-numeric as infinite LT
+
+            # Filter for options that have *at least* a valid FINITE cost OR a valid FINITE lead time
+            valid_options_for_calc = [
+                opt for opt in options
+                if isinstance(opt, dict) and
+                   ( (safe_float(opt.get('cost'), default=np.inf) != np.inf) or \
+                     (opt.get('lead_time', np.inf) != np.inf) ) # Already pre-processed to be numeric/inf
+            ]
+
+            # --- Initialize part-level flags ---
+            part_invalid_strict = False; part_invalid_min = False; part_invalid_max = False
+            part_invalid_fastest = False; part_invalid_optimized = False
+            part_invalid_in_stock = False; part_invalid_with_lt = False
+
+            if not valid_options_for_calc:
+                 logger.warning(f"No valid options with finite cost OR finite lead time for {bom_pn}. Marking as unavailable for ALL calculations.")
+                 invalid_parts_list.append(bom_pn)
+                 clear_to_build_stock_only = False
+                 stock_gap_parts.append(f"{bom_pn}: No Valid Data")
+                 # Set part flags (overall flags will be set later)
+                
+                 time_to_acquire_all_parts = np.inf # Cannot acquire if no valid options
+                 placeholder = self.create_strategy_entry({
+                     'notes': 'No Valid Data Found',
+                     'bom_pn': bom_pn, # Include bom_pn in placeholder
+                     'total_qty_needed': qty_needed # And qty
+                 })
+                 # Store placeholder immediately for this part
+                 for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
+                                 optimized_strategy, in_stock_strategy, with_lt_strategy]:
+                     strategy_dict[bom_pn] = placeholder 
+    
+                 continue # Skip further calculations for this part
 
             # --- Initialize per-part bests ---
             best_cost_option_strict_ref = None; part_min_cost_strict = np.inf
-            best_cost_option_optimized = None; part_min_cost_optimized = np.inf
-            fastest_option = None; part_fastest_cost = np.inf; part_min_lead = np.inf
-            best_in_stock_option = None; part_min_cost_in_stock = np.inf
-            best_with_lt_option = None; part_min_cost_with_lt = np.inf
+            best_cost_option_optimized_ref = None; part_min_cost_optimized = np.inf # This is the baseline lowest cost option ref
+            fastest_option_ref = None; part_fastest_cost = np.inf; part_min_lead = np.inf
+            best_in_stock_option_ref = None; part_min_cost_in_stock = np.inf
+            best_with_lt_option_ref = None; part_min_cost_with_lt = np.inf
+
 
             # --- Calculate Strict Cost & Find Best Option Reference ---
             current_min_strict_cost = np.inf
             current_best_lead_for_strict = np.inf
-            calculated_strict_values = {}
-            logger.debug(f"--- Strict Cost Calculation START for {bom_pn} ---")
-            for option in valid_options:
-                source = option.get('source', 'Unknown')
-                logger.debug(f"Calculating strict cost for source: {source}")
-                pricing_data_for_log = option.get('Pricing', '--- PRICING KEY MISSING ---')
-                logger.debug(f"  Pricing data BEFORE calling _calculate_strict_cost: {pricing_data_for_log}")
-                
-                pricing_data = sorted([pb for pb in option.get('Pricing', []) if isinstance(pb, dict) and 'qty' in pb and 'price' in pb], key=lambda p: p.get('qty', 0))
+            calculated_strict_values = {} # Store {source: {'cost': cost, 'qty': qty}}
+            for option in valid_options_for_calc:
+                source = option.get('source', f'UnknownSource_{valid_options_for_calc.index(option)}') # Unique ID if source missing
+                pricing_data = option.get('Pricing', [])
                 moq_data = option.get('MinOrderQty', 0)
+
                 strict_cost_val, strict_qty_val = _calculate_strict_cost(qty_needed, pricing_data, moq_data)
-
-                # Log the result immediately
-                logger.debug(f"Strict Calc Result for {source}: Cost={strict_cost_val}, Qty={strict_qty_val}")
-
                 calculated_strict_values[source] = {'cost': strict_cost_val, 'qty': strict_qty_val}
-                option_lead = option.get('lead_time', np.inf)
 
-                # Compare based on strict cost
+                # Use lead time as tie-breaker for strict cost
+                option_lead = option.get('lead_time', np.inf) # Already pre-processed
+
                 if strict_cost_val < current_min_strict_cost:
-                    logger.debug(f"  -> New best strict cost ({strict_cost_val} < {current_min_strict_cost}). Source: {source}")
                     current_min_strict_cost = strict_cost_val
                     current_best_lead_for_strict = option_lead
                     best_cost_option_strict_ref = option
                 elif strict_cost_val == current_min_strict_cost and option_lead < current_best_lead_for_strict:
-                     logger.debug(f"  -> Same strict cost ({strict_cost_val}), better lead time ({option_lead} < {current_best_lead_for_strict}). Source: {source}")
-                     current_best_lead_for_strict = option_lead
-                     best_cost_option_strict_ref = option
-                else:
-                     logger.debug(f"  -> Not better than current best strict cost ({current_min_strict_cost} from {best_cost_option_strict_ref.get('source') if best_cost_option_strict_ref else 'None'})")
+                    # Same cost, prefer lower lead time
+                    current_best_lead_for_strict = option_lead
+                    best_cost_option_strict_ref = option
 
             part_min_cost_strict = current_min_strict_cost
-            logger.debug(f"--- Strict Cost Calculation END for {bom_pn}. Min Strict Cost={part_min_cost_strict}. Best Ref Source: {best_cost_option_strict_ref.get('source') if best_cost_option_strict_ref else 'None'} ---")
 
 
             # --- Find Option with Lowest OPTIMIZED Cost (Baseline) ---
-            try: best_cost_option_optimized = min(valid_options, key=lambda x: (x.get('cost', np.inf), x.get('lead_time', np.inf))); part_min_cost_optimized = best_cost_option_optimized.get('cost', np.inf)
-            except ValueError: best_cost_option_optimized = None; part_min_cost_optimized = np.inf
+            # This is simply the lowest cost found, using lead time as tie-breaker
+            try:
+                # Sort by cost (finite first), then lead time (finite first)
+                best_cost_option_optimized_ref = min(
+                    valid_options_for_calc,
+                    key=lambda x: (
+                        safe_float(x.get('cost'), default=np.inf),
+                        x.get('lead_time', np.inf) # Already pre-processed
+                    )
+                )
+                part_min_cost_optimized = safe_float(best_cost_option_optimized_ref.get('cost'), default=np.inf)
+            except ValueError: # Should not happen if valid_options_for_calc is not empty
+                best_cost_option_optimized_ref = None
+                part_min_cost_optimized = np.inf
 
 
             # --- Find FASTEST Option ---
-            # ... (same logic as before) ...
-            fastest_option = None; part_fastest_cost = np.inf; part_min_lead = np.inf
-            if valid_options:
-                 options_in_stock_f = [opt for opt in valid_options if opt.get('stock', 0) >= qty_needed]
-                 if options_in_stock_f:
-                      try: fastest_option = min(options_in_stock_f, key=lambda x: (x.get('cost', np.inf), x.get('source', ''))); part_min_lead = 0
-                      except ValueError: fastest_option = None
-                 else:
-                      options_with_finite_lt = [opt for opt in valid_options if opt.get('lead_time', np.inf) != np.inf]
-                      if options_with_finite_lt:
-                           try: fastest_option = min(options_with_finite_lt, key=lambda x: (x.get('lead_time'), x.get('cost', np.inf), x.get('source', ''))); part_min_lead = fastest_option.get('lead_time') if fastest_option else np.inf
-                           except ValueError: fastest_option = None
-                 if fastest_option: part_fastest_cost = fastest_option.get('cost', np.inf)
+            # Priority 1: In stock (stock >= needed), lowest cost tie-breaker
+            # Priority 2: Finite lead time, lowest lead time, cost tie-breaker
+            fastest_option_ref = None
+            part_min_lead = np.inf # Reset for this part
+
+            options_in_stock_f = [
+                opt for opt in valid_options_for_calc
+                if opt.get('stock', 0) >= qty_needed
+            ]
+
+            if options_in_stock_f:
+                # Found in-stock options, choose the cheapest among them
+                try:
+                    fastest_option_ref = min(
+                        options_in_stock_f,
+                        key=lambda x: (
+                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
+                            x.get('source', '') # Secondary sort: source name (consistent tie-break)
+                        )
+                    )
+                    part_min_lead = 0 # It's in stock
+                except ValueError: # Should not happen if list is not empty
+                    pass # fastest_option_ref remains None
+            else:
+                # No options fully in stock, look for options with finite lead time
+                options_with_finite_lt = [
+                    opt for opt in valid_options_for_calc
+                    if opt.get('lead_time', np.inf) != np.inf
+                ]
+                if options_with_finite_lt:
+                    try:
+                        # Choose the one with the absolute minimum lead time, use cost as tie-breaker
+                        fastest_option_ref = min(
+                            options_with_finite_lt,
+                            key=lambda x: (
+                                x.get('lead_time'), # Primary sort: lead time
+                                safe_float(x.get('cost'), default=np.inf), # Secondary sort: cost
+                                x.get('source', '') # Tertiary sort: source name
+                            )
+                        )
+                        part_min_lead = fastest_option_ref.get('lead_time') # Get the actual min lead time
+                    except ValueError:
+                         pass # fastest_option_ref remains None
+
+            # Get the cost associated with the chosen fastest option
+            part_fastest_cost = safe_float(fastest_option_ref.get('cost'), default=np.inf) if fastest_option_ref else np.inf
 
 
-            # --- Find LOWEST COST IN STOCK Option ---
-            # ... (same logic as before) ...
-            best_in_stock_option = None; part_min_cost_in_stock = np.inf
-            if options_in_stock_f: # Reuse list
-                try: best_in_stock_option = min(options_in_stock_f, key=lambda x: (x.get('cost', np.inf), x.get('source', ''))); part_min_cost_in_stock = best_in_stock_option.get('cost', np.inf)
-                except ValueError: pass # best_in_stock_option remains None
+            # --- Find LOWEST COST IN STOCK ---
+            # Reuse options_in_stock_f from Fastest calculation
+            best_in_stock_option_ref = None
+            part_min_cost_in_stock = np.inf
+            if options_in_stock_f:
+                try:
+                    best_in_stock_option_ref = min(
+                        options_in_stock_f,
+                        key=lambda x: (
+                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
+                            x.get('source', '') # Secondary sort: source name
+                        )
+                    )
+                    part_min_cost_in_stock = safe_float(best_in_stock_option_ref.get('cost'), default=np.inf)
+                except ValueError:
+                    pass
 
 
-            # --- Find LOWEST COST WITH LEAD TIME Option ---
-            # ... (same logic as before) ...
-            best_with_lt_option = None; part_min_cost_with_lt = np.inf
-            options_for_with_lt = [opt for opt in valid_options if opt.get('stock', 0) >= qty_needed or (opt.get('lead_time', np.inf) != np.inf)]
+            # --- Find LOWEST COST WITH LEAD TIME ---
+            # Considers options that are either in stock OR have a finite lead time
+            best_with_lt_option_ref = None
+            part_min_cost_with_lt = np.inf
+            options_for_with_lt = [
+                opt for opt in valid_options_for_calc
+                if opt.get('stock', 0) >= qty_needed or opt.get('lead_time', np.inf) != np.inf
+            ]
             if options_for_with_lt:
-                try: best_with_lt_option = min(options_for_with_lt, key=lambda x: (x.get('cost', np.inf), x.get('lead_time', np.inf), x.get('source', ''))); part_min_cost_with_lt = best_with_lt_option.get('cost', np.inf)
-                except ValueError: pass # best_with_lt_option remains None
+                try:
+                    # Choose lowest cost, using lead time as tie-breaker
+                    best_with_lt_option_ref = min(
+                        options_for_with_lt,
+                        key=lambda x: (
+                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
+                            x.get('lead_time', np.inf), # Secondary sort: lead time
+                            x.get('source', '') # Tertiary sort: source name
+                        )
+                    )
+                    part_min_cost_with_lt = safe_float(best_with_lt_option_ref.get('cost'), default=np.inf)
+                except ValueError:
+                    pass
+
+
+            # --- Determine Part Validity Flags Based on Selections ---
+            part_invalid_strict = (best_cost_option_strict_ref is None or part_min_cost_strict == np.inf)
+            part_invalid_min = (best_cost_option_optimized_ref is None or part_min_cost_optimized == np.inf)
+            part_invalid_fastest = (fastest_option_ref is None or part_fastest_cost == np.inf or part_min_lead == np.inf) # Must have finite lead
+            part_invalid_in_stock = (best_in_stock_option_ref is None or part_min_cost_in_stock == np.inf)
+            part_invalid_with_lt = (best_with_lt_option_ref is None or part_min_cost_with_lt == np.inf)
+            # Optimized validity determined later
 
 
             # --- Store Strategy Details ---
-            # Strict Lowest Cost (REVISED CREATION)
-            if best_cost_option_strict_ref and part_min_cost_strict != np.inf:
-                strict_vals = calculated_strict_values.get(best_cost_option_strict_ref.get('source'))
-                if strict_vals:
-                    # ** Check if strict cost is valid before creating dict **
-                    if strict_vals['cost'] == np.inf:
-                         logger.warning(f"Strict Cost for {bom_pn} winning option {best_cost_option_strict_ref.get('source')} is inf. Storing as invalid.")
-                         invalid_strict_min = True
-                         strict_lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'Strict Cost Invalid (Inf)'})
-                    else:
-                         strict_entry_dict = {
-                             'source': best_cost_option_strict_ref.get('source', 'N/A'),
-                             'lead_time': best_cost_option_strict_ref.get('lead_time', np.nan), # Use original lead time
-                             'stock': best_cost_option_strict_ref.get('stock', 0),
-                             'moq': best_cost_option_strict_ref.get('moq', 0),
-                             'discontinued': best_cost_option_strict_ref.get('discontinued', False),
-                             'eol': best_cost_option_strict_ref.get('eol', False),
-                             'bom_pn': best_cost_option_strict_ref.get('bom_pn', 'N/A'),
-                             'original_qty_per_unit': best_cost_option_strict_ref.get('original_qty_per_unit', 0),
-                             'total_qty_needed': best_cost_option_strict_ref.get('total_qty_needed', 0),
-                             'Manufacturer': best_cost_option_strict_ref.get('Manufacturer', 'N/A'),
-                             'ManufacturerPartNumber': best_cost_option_strict_ref.get('ManufacturerPartNumber', 'N/A'),
-                             'SourcePartNumber': best_cost_option_strict_ref.get('SourcePartNumber', 'N/A'),
-                             'tariff_rate': best_cost_option_strict_ref.get('tariff_rate', np.nan),
-                             'CountryOfOrigin': best_cost_option_strict_ref.get('CountryOfOrigin', 'N/A'),
-                             'TariffCode': best_cost_option_strict_ref.get('TariffCode', 'N/A'),
-                             'cost': strict_vals['cost'], # *** USE STRICT COST ***
-                             'actual_order_qty': strict_vals['qty'], # *** USE STRICT QTY ***
-                             'unit_cost': (strict_vals['cost'] / strict_vals['qty']) if strict_vals['qty'] > 0 else np.nan, # *** USE STRICT UNIT COST ***
-                             'notes': f"Strict Cost Calc; {best_cost_option_strict_ref.get('notes', '')}".strip('; '),
-                             'optimized_strategy_score': '',
-                         }
-                         strict_lowest_cost_strategy[bom_pn] = strict_entry_dict
-                         # Aggregate total using the STRICT cost value only if it's valid
-                         if not invalid_strict_min:
-                             total_bom_cost_strict_min += part_min_cost_strict # part_min_cost_strict holds the valid cost
-                             chosen_strict_lead = strict_entry_dict.get('lead_time', np.inf)
-                             if chosen_strict_lead == np.inf: max_lead_time_strict_min = np.inf
-                             elif max_lead_time_strict_min != np.inf: max_lead_time_strict_min = max(max_lead_time_strict_min, chosen_strict_lead)
+            # Strict Lowest Cost
+            if not part_invalid_strict:
+                strict_source = best_cost_option_strict_ref.get('source', 'UnknownSource_Strict')
+                strict_vals = calculated_strict_values.get(strict_source) # Use source to get calculated cost/qty
+                if strict_vals and strict_vals['cost'] != np.inf:
+                    # Create a copy of the chosen option data
+                    strict_entry_dict = self.create_strategy_entry(best_cost_option_strict_ref)
+                    # Update with strict calculation results
+                    strict_entry_dict.update({
+                        'cost': strict_vals['cost'],
+                        'actual_order_qty': strict_vals['qty'],
+                        'unit_cost': (strict_vals['cost'] / strict_vals['qty']) if strict_vals['qty'] > 0 else np.nan,
+                        'notes': f"Strict Cost Calc; {strict_entry_dict.get('notes', '')}".strip('; '),
+                    })
+                    strict_lowest_cost_strategy[bom_pn] = strict_entry_dict
                 else:
-                     logger.error(f"Logic error: Could not find calculated strict values for winning option {best_cost_option_strict_ref.get('source')} for {bom_pn}")
+                    # Strict calculation failed for the chosen option's source
+                    part_invalid_strict = True # Mark as invalid if strict cost itself was inf or calculation failed
+                    logger.warning(f"Strict cost calculation failed for {bom_pn} at source {strict_source}, even though an option was selected.")
+
+            if part_invalid_strict: # If invalid now or originally
+                strict_lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Valid (Strict) Cost Option Found'})
+
+            # Store others using create_strategy_entry with the chosen reference option
+            lowest_cost_strategy[bom_pn] = self.create_strategy_entry(best_cost_option_optimized_ref) if not part_invalid_min else self.create_strategy_entry({'notes': 'No Valid Optimized Cost Option Found'})
+            fastest_strategy[bom_pn] = self.create_strategy_entry(fastest_option_ref) if not part_invalid_fastest else self.create_strategy_entry({'notes': 'No Valid Finite Lead Time Option Found'})
+            in_stock_strategy[bom_pn] = self.create_strategy_entry(best_in_stock_option_ref) if not part_invalid_in_stock else self.create_strategy_entry({'notes': 'No In Stock Option Found'})
+            with_lt_strategy[bom_pn] = self.create_strategy_entry(best_with_lt_option_ref) if not part_invalid_with_lt else self.create_strategy_entry({'notes': 'No Option Found w/ Stock or Finite LT'})
+
+            if i == 1: # Index 1 corresponds to the second part processed
+                logger.debug(f"--- DETAILED DEBUG FOR PART #{i+1}: {bom_pn} ---")
+                logger.debug(f"Part Invalid Flags: Strict={part_invalid_strict}, Min={part_invalid_min}, Fastest={part_invalid_fastest}, InStock={part_invalid_in_stock}, WithLT={part_invalid_with_lt}, Optimized={part_invalid_optimized}")
+                logger.debug(f"Global Invalid Flags (Start): Strict={invalid_strict_min}, Min={invalid_min}, Fastest={invalid_fastest}, InStock={invalid_in_stock}, WithLT={invalid_with_lt}, Optimized={invalid_optimized}, Max={invalid_max}")
+
+                # Check Strict Strategy Data
+                strict_entry = strict_lowest_cost_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"Strict Entry for {bom_pn}: {strict_entry}")
+                if isinstance(strict_entry, dict): logger.debug(f"  Strict Cost Raw: {strict_entry.get('cost')}, LT Raw: {strict_entry.get('lead_time')}, Stock Raw: {strict_entry.get('stock')}")
+
+                # Check MinBase Strategy Data
+                minbase_entry = lowest_cost_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"MinBase Entry for {bom_pn}: {minbase_entry}")
+                if isinstance(minbase_entry, dict): logger.debug(f"  MinBase Cost Raw: {minbase_entry.get('cost')}, LT Raw: {minbase_entry.get('lead_time')}, Stock Raw: {minbase_entry.get('stock')}")
+
+                # Check Fastest Strategy Data
+                fastest_entry = fastest_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"Fastest Entry for {bom_pn}: {fastest_entry}")
+                if isinstance(fastest_entry, dict): logger.debug(f"  Fastest Cost Raw: {fastest_entry.get('cost')}, LT Raw: {fastest_entry.get('lead_time')}, Stock Raw: {fastest_entry.get('stock')}")
+
+                # Check InStock Strategy Data
+                instock_entry = in_stock_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"InStock Entry for {bom_pn}: {instock_entry}")
+                if isinstance(instock_entry, dict): logger.debug(f"  InStock Cost Raw: {instock_entry.get('cost')}, LT Raw: {instock_entry.get('lead_time')}, Stock Raw: {instock_entry.get('stock')}")
+
+                # Check WithLT Strategy Data
+                withlt_entry = with_lt_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"WithLT Entry for {bom_pn}: {withlt_entry}")
+                if isinstance(withlt_entry, dict): logger.debug(f"  WithLT Cost Raw: {withlt_entry.get('cost')}, LT Raw: {withlt_entry.get('lead_time')}, Stock Raw: {withlt_entry.get('stock')}")
+
+                # Check Optimized Strategy Data
+                optimized_entry = optimized_strategy.get(bom_pn, 'MISSING_ENTRY')
+                logger.debug(f"Optimized Entry for {bom_pn}: {optimized_entry}")
+                if isinstance(optimized_entry, dict): logger.debug(f"  Optimized Cost Raw: {optimized_entry.get('cost')}, LT Raw: {optimized_entry.get('lead_time')}, Stock Raw: {optimized_entry.get('stock')}")
+
+                logger.debug(f"--- END DETAILED DEBUG FOR PART #{i+1}: {bom_pn} ---")
+
+            
+            # --- Aggregate Totals (CHECKING OVERALL AND PART FLAGS, USING ACTUAL LEAD TIME) ---
+            def get_actual_lead(strategy_dict, bom_pn_key, qty_needed_val):
+                """ Helper to get lead time considering stock for a chosen strategy option """
+                if bom_pn_key not in strategy_dict: return np.inf
+                chosen_option = strategy_dict[bom_pn_key]
+                if not isinstance(chosen_option, dict): return np.inf # Handle placeholder non-dict case
+
+                chosen_stock = safe_float(chosen_option.get('stock'), default=0)
+                chosen_qty = safe_float(chosen_option.get('actual_order_qty'), default=qty_needed_val)
+                if chosen_qty <= 0: chosen_qty = qty_needed_val
+
+                chosen_listed_lead = safe_float(chosen_option.get('lead_time'), default=np.inf)
+
+                if chosen_stock >= chosen_qty:
+                    return 0
+                else:
+                    return chosen_listed_lead
+
+            # --- Strict Aggregation ---
+            if not invalid_strict_min: # Only check global flag
+                cost_to_add = safe_float(strict_lowest_cost_strategy[bom_pn].get('cost'), default=np.inf)
+                if cost_to_add != np.inf:
+                    total_bom_cost_strict_min += cost_to_add
+                    actual_lead_strict = get_actual_lead(strict_lowest_cost_strategy, bom_pn, qty_needed)
+                    if actual_lead_strict == np.inf: max_lead_time_strict_min = np.inf
+                    elif max_lead_time_strict_min != np.inf: max_lead_time_strict_min = max(max_lead_time_strict_min, actual_lead_strict)
+                else:
+                     # Only invalidate if adding INF cost, check if part selection was supposed to be valid
+                     if not part_invalid_strict: # Log if we *should* have had a valid cost
+                         logger.warning(f"Part {bom_pn} added infinite cost to Strict strategy despite part selection being valid. Invalidating.")
                      invalid_strict_min = True
-                     strict_lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'Error Retrieving Strict Values'})
-            else:
-                invalid_strict_min = True
-                strict_lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Valid (Strict) Cost Option'})
-            # --- End Strict Cost Storage ---
+            logger.debug(f"Part {bom_pn} - Post-Strict Agg: invalid_strict_min = {invalid_strict_min}")
 
-            # --- Store Lowest Cost (Optimized Baseline) ---
-            if best_cost_option_optimized and part_min_cost_optimized != np.inf:
-                 lowest_cost_strategy[bom_pn] = self.create_strategy_entry(best_cost_option_optimized)
-                 if not invalid_min: total_bom_cost_min += part_min_cost_optimized; max_lead_time_min = max(max_lead_time_min, best_cost_option_optimized.get('lead_time', np.inf)) if max_lead_time_min != np.inf else np.inf
-            else: invalid_min = True; lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Valid Optimized Cost'}); best_cost_option_optimized = None
-
-            # --- Store Fastest ---
-            if fastest_option and part_min_lead != np.inf: # Requires finite lead time (0 for stock)
-                 fastest_strategy[bom_pn] = self.create_strategy_entry(fastest_option)
-                 if not invalid_fastest:
-                      if part_fastest_cost == np.inf: invalid_fastest = True # Cost must also be valid
-                      else: total_bom_cost_fastest += part_fastest_cost
-                      if part_min_lead == np.inf: max_lead_time_fastest = np.inf
-                      elif max_lead_time_fastest != np.inf: max_lead_time_fastest = max(max_lead_time_fastest, part_min_lead)
-            else: invalid_fastest = True; fastest_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Valid Lead Time Option'})
-
-            # --- Store Lowest Cost In Stock ---
-            if best_in_stock_option and part_min_cost_in_stock != np.inf:
-                in_stock_strategy[bom_pn] = self.create_strategy_entry(best_in_stock_option)
-                if not invalid_in_stock: total_bom_cost_in_stock += part_min_cost_in_stock # max_lead_time_in_stock remains 0
-            else: invalid_in_stock = True; in_stock_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No In Stock Option Found'})
-
-            # --- Store Lowest Cost With LT ---
-            if best_with_lt_option and part_min_cost_with_lt != np.inf:
-                with_lt_strategy[bom_pn] = self.create_strategy_entry(best_with_lt_option)
-                if not invalid_with_lt:
-                    total_bom_cost_with_lt += part_min_cost_with_lt
-                    part_lt = best_with_lt_option.get('lead_time', np.inf)
-                    if part_lt == np.inf: max_lead_time_with_lt = np.inf
-                    elif max_lead_time_with_lt != np.inf: max_lead_time_with_lt = max(max_lead_time_with_lt, part_lt)
-            else: invalid_with_lt = True; with_lt_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Option w/ Stock or Finite LT'})
-
-
-            # --- Calculate Max Potential Cost ---
-            part_max_cost = 0.0
-            valid_costs_part = [opt.get('cost', 0) for opt in valid_options if opt.get('cost', np.inf) != np.inf]
-            if valid_costs_part: part_max_cost = max(valid_costs_part)
-            else: invalid_max = True
-            if not invalid_max and not pd.isna(total_bom_cost_max): total_bom_cost_max += part_max_cost
-            else: total_bom_cost_max = np.nan
-
-
-            # --- Optimized Strategy Calculation (WITH DEBUG LOGGING) ---
-            target_lt_days = config['target_lead_time_days']; max_prem_pct = config['max_premium']
-            cost_weight = config['cost_weight']; lead_weight = config['lead_time_weight']
-            chosen_option_opt = None; opt_notes = ""; best_score = np.inf
-
-            if part_min_cost_optimized == np.inf:
-                 logger.warning(f"Optimized Strategy: Skipping {bom_pn} as base optimized cost is invalid.")
-                 strict_fallback = strict_lowest_cost_strategy.get(bom_pn)
-                 if strict_fallback and strict_fallback.get('cost', np.inf) != np.inf: chosen_option_opt = strict_fallback # Assign fallback for storage
-                 else: chosen_option_opt = None
-                 opt_notes = "N/A (Invalid Base Cost)"; invalid_optimized = True
-            else:
-                constrained_options = []
-                logger.debug(f"Optimized Strategy [{bom_pn}]: BaseCost={part_min_cost_optimized:.4f}, TargetLT={target_lt_days}d, MaxPremium={max_prem_pct}%")
-                for opt_idx, opt in enumerate(valid_options):
-                    cost = opt.get('cost', np.inf); lead = opt.get('lead_time', np.inf)
-                    logger.debug(f"  Checking Option {opt_idx} ({opt.get('source', 'N/A')}): Cost={cost:.4f}, LT={lead}")
-                    # Check constraints
-                    if cost == np.inf or lead == np.inf or lead > target_lt_days:
-                        logger.debug(f"    -> Rejected (Invalid Cost or LT=Inf or LT > Target={target_lt_days})")
-                        continue
-                    cost_premium_pct_calc = ((cost - part_min_cost_optimized) / part_min_cost_optimized * 100.0) if part_min_cost_optimized > 1e-9 else 0.0
-                    logger.debug(f"    Premium Calculation: (({cost} - {part_min_cost_optimized}) / {part_min_cost_optimized}) * 100 = {cost_premium_pct_calc:.2f}%")
-                    if cost_premium_pct_calc > max_prem_pct:
-                        logger.debug(f"    -> Rejected (Premium {cost_premium_pct_calc:.1f}% > {max_prem_pct}%)")
-                        continue
-                    logger.debug(f"    -> VIABLE")
-                    constrained_options.append(opt)
-
-                if not constrained_options:
-                     logger.warning(f"Optimized Strategy: No option met constraints for {bom_pn}.")
-                     strict_fallback = strict_lowest_cost_strategy.get(bom_pn)
-                     lowest_cost_strict_lt = strict_fallback.get('lead_time', np.inf) if strict_fallback else np.inf
-                     # Determine fallback
-                     if lowest_cost_strict_lt > target_lt_days * 1.5 and target_lt_days > 0 and fastest_option:
-                          chosen_option_opt = fastest_option; opt_notes = f"Constraints Failed. Fallback to Fastest (Strict Low Cost LT: {lowest_cost_strict_lt}d)."
-                     elif strict_fallback and strict_fallback.get('cost', np.inf) != np.inf:
-                          chosen_option_opt = strict_fallback; opt_notes = f"Constraints Failed. Fallback to Strict Lowest Cost."
-                     else: chosen_option_opt = None; opt_notes = f"Constraints Failed. No valid fallback."; invalid_optimized = True
-                     best_score = np.nan
+            # --- Optimized Baseline Cost (total_bom_cost_min) Aggregation ---
+            if not invalid_min: # Only check global flag
+                cost_to_add = safe_float(lowest_cost_strategy[bom_pn].get('cost'), default=np.inf)
+                if cost_to_add != np.inf:
+                    total_bom_cost_min += cost_to_add
+                    actual_lead_min = get_actual_lead(lowest_cost_strategy, bom_pn, qty_needed)
+                    if actual_lead_min == np.inf: max_lead_time_min = np.inf
+                    elif max_lead_time_min != np.inf: max_lead_time_min = max(max_lead_time_min, actual_lead_min)
                 else:
-                     logger.debug(f"Optimized Strategy [{bom_pn}]: {len(constrained_options)} viable options found. Calculating scores...")
-                     # ... (Score calculation logic - same as before) ...
-                     min_viable_cost=min(opt['cost'] for opt in constrained_options); max_viable_cost=max(opt['cost'] for opt in constrained_options)
-                     min_viable_lt=min(opt['lead_time'] for opt in constrained_options); max_viable_lt=max(opt['lead_time'] for opt in constrained_options)
-                     cost_range = (max_viable_cost - min_viable_cost) if max_viable_cost > min_viable_cost else 1.0
-                     lead_range = (max_viable_lt - min_viable_lt) if max_viable_lt > min_viable_lt else 1.0
-                     logger.debug(f"  Viable Ranges: Cost=[{min_viable_cost:.4f}-{max_viable_cost:.4f}], LT=[{min_viable_lt:.0f}-{max_viable_lt:.0f}]")
+                    if not part_invalid_min:
+                        logger.warning(f"Part {bom_pn} added infinite cost to Min Cost strategy despite part selection being valid. Invalidating.")
+                    invalid_min = True
+            logger.debug(f"Part {bom_pn} - Post-MinBase Agg: invalid_min = {invalid_min}")
 
-                     for viable_opt_idx, option in enumerate(constrained_options):
-                          cost=option['cost']; lead_time=option['lead_time']; stock=option.get('stock', 0)
-                          norm_cost = (cost - min_viable_cost) / cost_range if cost_range > 1e-9 else 0
-                          norm_lead = (lead_time - min_viable_lt) / lead_range if lead_range > 1e-9 else 0
-                          score = (cost_weight * norm_cost) + (lead_weight * norm_lead)
-                          penalty_info = []
-                          if option.get('discontinued') or option.get('eol'): score += 0.5; penalty_info.append("EOL/Disc")
-                          if stock < qty_needed: score += 0.1; penalty_info.append("Stock<Need")
-                          logger.debug(f"    Option {viable_opt_idx} ({option.get('source', 'N/A')}): NormCost={norm_cost:.3f}, NormLead={norm_lead:.3f}, Penalties='{';'.join(penalty_info)}', FinalScore={score:.3f}")
-                          if score < best_score:
-                               best_score = score
-                               chosen_option_opt = option
-                               logger.debug(f"      -> NEW BEST SCORE found. Option Source: {chosen_option_opt.get('source', 'N/A')}")
-
-                     if chosen_option_opt:
-                          logger.debug(f"Optimized Strategy [{bom_pn}]: Selected option from Source={chosen_option_opt.get('source', 'N/A')} with Score={best_score:.3f}")
-                          opt_notes = f"Score: {best_score:.3f}"; existing_notes = chosen_option_opt.get('notes', '');
-                          if existing_notes: opt_notes = f"{existing_notes}; {opt_notes}"
-                     else:
-                          logger.error(f"Optimized Strategy: LOGIC ERROR - No option selected for {bom_pn} despite having {len(constrained_options)} viable options.")
-                          strict_fallback = strict_lowest_cost_strategy.get(bom_pn)
-                          chosen_option_opt = strict_fallback if strict_fallback and strict_fallback.get('cost', np.inf) != np.inf else None
-                          opt_notes = "N/A (Selection Logic Error)"
-                          best_score = np.nan
-                          if not chosen_option_opt: invalid_optimized = True
-
-
-            # --- Store Optimized Strategy Choice ---
-            if chosen_option_opt: # Check if an option was actually chosen (could be fallback)
-                 # Ensure the chosen option dictionary is valid before creating entry
-                 if isinstance(chosen_option_opt, dict):
-                     chosen_option_opt['optimized_strategy_score'] = f"{best_score:.3f}" if pd.notna(best_score) else "N/A"
-                     chosen_option_opt['notes'] = opt_notes # Assign notes determined above
-                     optimized_strategy[bom_pn] = self.create_strategy_entry(chosen_option_opt)
-                     cost_to_add = chosen_option_opt.get('cost', np.inf)
-
-                     # ** AGGREGATION VALIDATION **
-                     # Check if the *chosen* option's cost is valid before aggregating
-                     if pd.isna(cost_to_add) or cost_to_add == np.inf:
-                         logger.warning(f"Optimized Strategy for {bom_pn} chose an option with invalid cost ({cost_to_add}). Marking overall strategy as invalid.")
-                         invalid_optimized = True # Mark the whole strategy invalid
-
-                     if not invalid_optimized: # Only aggregate if the strategy is still valid *after checking this part*
-                          total_bom_cost_optimized += cost_to_add
-                          lead_to_add = chosen_option_opt.get('lead_time', np.inf)
-                          if lead_to_add == np.inf: max_lead_time_optimized = np.inf
-                          elif max_lead_time_optimized != np.inf: max_lead_time_optimized = max(max_lead_time_optimized, lead_to_add)
+            # --- Fastest Aggregation ---
+            if not invalid_fastest: # Only check global flag
+                 cost_to_add = safe_float(fastest_strategy[bom_pn].get('cost'), default=np.inf)
+                 if cost_to_add != np.inf:
+                    total_bom_cost_fastest += cost_to_add
+                    actual_lead_fastest = part_min_lead # Use pre-calculated fastest lead
+                    if actual_lead_fastest == np.inf: max_lead_time_fastest = np.inf
+                    elif max_lead_time_fastest != np.inf: max_lead_time_fastest = max(max_lead_time_fastest, actual_lead_fastest)
                  else:
-                      # This case should ideally not happen if fallback logic is correct
-                      logger.error(f"Optimized Strategy [{bom_pn}]: chosen_option_opt was not a dict. Type: {type(chosen_option_opt)}")
-                      if bom_pn not in optimized_strategy: optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': 'Internal Error'})
+                    if not part_invalid_fastest:
+                         logger.warning(f"Part {bom_pn} added infinite cost to Fastest strategy despite part selection being valid. Invalidating.")
+                    invalid_fastest = True
+            logger.debug(f"Part {bom_pn} - Post-Fastest Agg: invalid_fastest = {invalid_fastest}")
+
+            # --- In Stock Aggregation ---
+            # This strategy REQUIRES the part to be valid for in-stock
+            if not part_invalid_in_stock: # <<< KEEP part-level check here
+                if not invalid_in_stock:
+                    cost_to_add = safe_float(in_stock_strategy[bom_pn].get('cost'), default=np.inf)
+                    if cost_to_add != np.inf:
+                        total_bom_cost_in_stock += cost_to_add
+                        # LT stays 0
+                    else:
+                        logger.warning(f"Part {bom_pn} added infinite cost to In Stock strategy. Invalidating.")
+                        invalid_in_stock = True
+            # No else needed here, if part_invalid_in_stock is True, we just skip aggregation for this part
+            logger.debug(f"Part {bom_pn} - Post-InStock Agg: invalid_in_stock = {invalid_in_stock}")
+
+            # --- With LT Aggregation ---
+            if not invalid_with_lt: # Only check global flag
+                cost_to_add = safe_float(with_lt_strategy[bom_pn].get('cost'), default=np.inf)
+                if cost_to_add != np.inf:
+                    total_bom_cost_with_lt += cost_to_add
+                    actual_lead_with_lt = get_actual_lead(with_lt_strategy, bom_pn, qty_needed)
+                    if actual_lead_with_lt == np.inf: max_lead_time_with_lt = np.inf
+                    elif max_lead_time_with_lt != np.inf: max_lead_time_with_lt = max(max_lead_time_with_lt, actual_lead_with_lt)
+                else:
+                    if not part_invalid_with_lt:
+                        logger.warning(f"Part {bom_pn} added infinite cost to With LT strategy despite part selection being valid. Invalidating.")
+                    invalid_with_lt = True
+            logger.debug(f"Part {bom_pn} - Post-WithLT Agg: invalid_with_lt = {invalid_with_lt}")
+
+
+            # --- Max Cost Aggregation ---
+            # Logic remains the same, as it already correctly invalidates based on part-level data
+            part_max_cost = 0.0
+            valid_costs_part = [ safe_float(opt.get('cost')) for opt in valid_options_for_calc if pd.notna(safe_float(opt.get('cost'), default=np.nan)) and safe_float(opt.get('cost'), default=np.inf) != np.inf ]
+            if valid_costs_part:
+                part_max_cost = max(valid_costs_part)
+                if not invalid_max: total_bom_cost_max += part_max_cost
+            else:
+                if not invalid_max: logger.warning(f"Part {bom_pn} has no valid cost options. Invalidating overall Max Cost calculation.")
+                invalid_max = True
+            logger.debug(f"Part {bom_pn} - Post-Max Agg: invalid_max = {invalid_max}")
+
+
+
+            # --- Optimized Strategy Calculation ---
+            target_lt_days = config.get('target_lead_time_days', np.inf) # Use .get with default
+            max_prem_pct = config.get('max_premium', np.inf)
+            cost_weight = config.get('cost_weight', 0.5)
+            lead_weight = config.get('lead_time_weight', 0.5)
+
+            chosen_option_opt_ref = None # Reference to the chosen option dict
+            opt_notes = ""
+            best_score = np.inf
+            part_invalid_optimized = False # Reset part-level flag for optimized
+
+            if part_invalid_min: # Cannot run optimized if baseline (lowest) cost is invalid for this part
+                logger.warning(f"Optimized Strategy: Skipping {bom_pn} as base lowest cost is invalid for this part.")
+                opt_notes = "N/A (Invalid Base Cost)"
+                part_invalid_optimized = True # Mark part as invalid for optimized
+                # Fallback logic will be handled after constraint checking block
+            else:
+                # Baseline cost for premium calculation is part_min_cost_optimized
+                baseline_cost = part_min_cost_optimized
+
+                constrained_options = [] # Options meeting LT and Premium constraints
+                # logger.debug(f"Optimized Strategy [{bom_pn}]: BaseCost={baseline_cost:.4f}, TargetLT={target_lt_days}d, MaxPremium={max_prem_pct}%")
+
+                for opt_idx, option in enumerate(valid_options_for_calc):
+                    cost = safe_float(option.get('cost'), default=np.inf)
+                    lead_time = option.get('lead_time', np.inf) # Already pre-processed
+
+                    # Basic validity check for this option
+                    if cost == np.inf: continue # Must have a valid cost to be considered
+
+                    # Constraint Check 1: Lead Time
+                    # Allow options with 0 stock if lead time meets target
+                    # Allow options with stock > 0 even if lead time > target (since effective LT is 0)
+                    stock = option.get('stock', 0)
+                    effective_lead_time = 0 if stock >= qty_needed else lead_time
+
+                    if effective_lead_time == np.inf or effective_lead_time > target_lt_days:
+                         # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): Failed LT constraint (Effective LT: {effective_lead_time} > Target: {target_lt_days})")
+                         continue # Fails lead time constraint
+
+                    # Constraint Check 2: Cost Premium
+                    cost_premium_pct_calc = 0.0
+                    if baseline_cost > 1e-9: # Avoid division by zero
+                        cost_premium_pct_calc = ((cost - baseline_cost) / baseline_cost * 100.0)
+                    else: # If baseline cost is zero or near-zero, any positive cost is infinite premium
+                        if cost > 1e-9: cost_premium_pct_calc = np.inf
+
+                    if cost_premium_pct_calc > max_prem_pct:
+                        # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): Failed Premium constraint (Premium: {cost_premium_pct_calc:.2f}% > Max: {max_prem_pct}%)")
+                        continue # Fails cost premium constraint
+
+                    # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): PASSED constraints (Cost={cost}, Eff LT={effective_lead_time})")
+                    constrained_options.append(option)
+
+                # --- Score valid constrained options ---
+                if constrained_options:
+                    # Find min/max cost and effective lead time *within the constrained set* for normalization
+                    constrained_costs = [safe_float(opt.get('cost')) for opt in constrained_options] # Already filtered for cost != inf
+                    constrained_effective_lts = []
+                    for opt in constrained_options:
+                        stock = opt.get('stock', 0)
+                        lead = opt.get('lead_time', np.inf)
+                        eff_lt = 0 if stock >= qty_needed else lead
+                        if eff_lt != np.inf: constrained_effective_lts.append(eff_lt)
+
+                    min_viable_cost = min(constrained_costs) if constrained_costs else np.inf
+                    max_viable_cost = max(constrained_costs) if constrained_costs else np.inf
+                    min_viable_lt = min(constrained_effective_lts) if constrained_effective_lts else 0 # Min effective LT can be 0
+                    max_viable_lt = max(constrained_effective_lts) if constrained_effective_lts else 0
+
+                    cost_range = (max_viable_cost - min_viable_cost) if max_viable_cost > min_viable_cost else 1.0
+                    lead_range = (max_viable_lt - min_viable_lt) if max_viable_lt > min_viable_lt else 1.0
+                    if cost_range < 1e-9: cost_range = 1.0 # Avoid division by zero if all costs are same
+                    if lead_range < 1e-9: lead_range = 1.0 # Avoid division by zero if all leads are same
+
+                    # Calculate score for each constrained option
+                    for viable_opt in constrained_options:
+                        cost = safe_float(viable_opt.get('cost')) # Known to be finite
+                        stock = viable_opt.get('stock', 0)
+                        lead_time = viable_opt.get('lead_time', np.inf)
+                        effective_lead_time = 0 if stock >= qty_needed else lead_time # Known to be finite and <= target_lt_days
+
+                        # Normalize Cost (0 = best = min_viable_cost, 1 = worst = max_viable_cost)
+                        norm_cost = (cost - min_viable_cost) / cost_range if cost_range > 1e-9 else 0
+
+                        # Normalize Lead Time (0 = best = min_viable_lt, 1 = worst = max_viable_lt)
+                        norm_lead = (effective_lead_time - min_viable_lt) / lead_range if lead_range > 1e-9 else 0
+
+                        # Calculate weighted score (lower is better)
+                        score = (cost_weight * norm_cost) + (lead_weight * norm_lead)
+
+                        # Penalties (add to score, making it worse)
+                        if viable_opt.get('discontinued') or viable_opt.get('eol'): score += 0.5 # Penalty for discontinued/EOL
+                        if stock < qty_needed: score += 0.1 # Slight penalty if not fully in stock (even if LT is good)
+
+                        # Store score in option for potential debugging/reporting
+                        viable_opt['_temp_score'] = score
+
+                        # Update best score and chosen option reference
+                        if score < best_score:
+                            best_score = score
+                            chosen_option_opt_ref = viable_opt # Keep reference to the original option dict
+
+                    if chosen_option_opt_ref:
+                        opt_notes = f"Score: {best_score:.3f}"
+                        # Clean up temporary score key
+                        if '_temp_score' in chosen_option_opt_ref: del chosen_option_opt_ref['_temp_score']
+                        for opt in constrained_options: # Clean up all
+                            if '_temp_score' in opt: del opt['_temp_score']
+                    else:
+                        # This case should ideally not happen if constrained_options is not empty
+                        logger.error(f"Optimized Strategy: LOGIC ERROR - No option selected for {bom_pn} from {len(constrained_options)} constrained options.")
+                        part_invalid_optimized = True
+                        opt_notes = "Error during scoring"
+                        # Attempt fallback below
+
+                # --- Handle No Constrained Options or Fallback ---
+                if not chosen_option_opt_ref: # Covers empty constrained_options or scoring error
+                    if not part_invalid_optimized: # Only log warning if not already invalid from base cost issue
+                         logger.warning(f"Optimized Strategy: No option met constraints or scoring failed for {bom_pn}.")
+
+                    # Fallback logic: Prefer Strict, then Fastest if Strict LT is too long
+                    strict_fallback_entry = strict_lowest_cost_strategy.get(bom_pn)
+                    strict_fallback_valid = (strict_fallback_entry and safe_float(strict_fallback_entry.get('cost'), default=np.inf) != np.inf)
+
+                    fastest_fallback_entry = fastest_strategy.get(bom_pn)
+                    fastest_fallback_valid = (fastest_fallback_entry and safe_float(fastest_fallback_entry.get('cost'), default=np.inf) != np.inf and safe_float(fastest_fallback_entry.get('lead_time'), default=np.inf) != np.inf)
+
+                    chosen_fallback = None
+                    fallback_note = ""
+
+                    if strict_fallback_valid:
+                        strict_fallback_lt = get_actual_lead(strict_lowest_cost_strategy, bom_pn, qty_needed)
+                        # Use strict fallback unless its lead time is significantly worse than target AND a faster option exists
+                        # Define "significantly worse" - e.g., > 1.5x target LT OR > target LT + 14 days? Let's use 1.5x for now.
+                        is_strict_too_slow = (strict_fallback_lt > target_lt_days * 1.5) and (target_lt_days > 0)
+
+                        if is_strict_too_slow and fastest_fallback_valid:
+                            chosen_fallback = fastest_fallback_entry # Reference the *entry* dict
+                            fallback_note = "Constraints Failed. Fallback to Fastest (Strict LT too long)."
+                        else:
+                            chosen_fallback = strict_fallback_entry # Reference the *entry* dict
+                            fallback_note = "Constraints Failed. Fallback to Strict."
+                    elif fastest_fallback_valid:
+                        # Strict failed, but fastest is available
+                        chosen_fallback = fastest_fallback_entry # Reference the *entry* dict
+                        fallback_note = "Constraints Failed & Strict Invalid. Fallback to Fastest."
+                    else:
+                        # Neither strict nor fastest provide a valid fallback
+                         fallback_note = "Constraints Failed. No valid fallback found."
+                         part_invalid_optimized = True # Mark part as invalid
+
+                    if chosen_fallback:
+                        # We need the original option data, not the processed entry for storing
+                        # This is tricky because the fallback entries are already processed.
+                        # We'll store the processed entry, but this might lack some original detail if needed later.
+                        # For aggregation, using the processed entry is sufficient.
+                        optimized_strategy[bom_pn] = chosen_fallback # Store the chosen fallback entry
+                        optimized_strategy[bom_pn]['notes'] = f"{fallback_note}; {optimized_strategy[bom_pn].get('notes', '')}".strip('; ')
+                        optimized_strategy[bom_pn]['optimized_strategy_score'] = 'N/A (Fallback)'
+                        # We need to check if this chosen fallback itself is valid for aggregation
+                        cost_to_add_fallback = safe_float(chosen_fallback.get('cost'), default=np.inf)
+                        if cost_to_add_fallback == np.inf: part_invalid_optimized = True
+                    else:
+                        # Store placeholder if no fallback worked
+                        optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': fallback_note})
+                        part_invalid_optimized = True
+
+                    best_score = np.nan # Indicate fallback or failure
+
+            # --- Store Optimized Strategy Choice (if not handled by fallback) ---
+            if chosen_option_opt_ref and not part_invalid_optimized:
+                # We successfully chose an option via scoring, not fallback
+                # Create the entry from the chosen reference option
+                opt_entry = self.create_strategy_entry(chosen_option_opt_ref)
+                opt_entry['optimized_strategy_score'] = f"{best_score:.3f}" if pd.notna(best_score) else "N/A"
+                opt_entry['notes'] = f"{opt_notes}; {opt_entry.get('notes', '')}".strip('; ')
+                optimized_strategy[bom_pn] = opt_entry
+            elif not part_invalid_optimized and bom_pn not in optimized_strategy:
+                 # This case means we got here without choosing an option *or* hitting fallback
+                 # Should not happen if logic above is correct, but handle defensively
+                 logger.error(f"Optimized Strategy: Reached end for {bom_pn} without selection or fallback decision.")
+                 optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': 'N/A (Processing Error)'})
+                 part_invalid_optimized = True
+
+
+            # --- Aggregate Optimized Cost and Lead Time (if part is valid for optimized) ---
+            if not invalid_optimized: # Only check global flag (already potentially set during opt calc)
+                 # Get the chosen optimized option for this part
+                 chosen_opt_entry = optimized_strategy.get(bom_pn)
+                 if isinstance(chosen_opt_entry, dict): # Check if it's a valid entry
+                     cost_to_add_opt = safe_float(chosen_opt_entry.get('cost'), default=np.inf)
+                     if cost_to_add_opt != np.inf:
+                         total_bom_cost_optimized += cost_to_add_opt
+                         actual_lead_opt = get_actual_lead(optimized_strategy, bom_pn, qty_needed)
+                         if actual_lead_opt == np.inf: max_lead_time_optimized = np.inf
+                         elif max_lead_time_optimized != np.inf: max_lead_time_optimized = max(max_lead_time_optimized, actual_lead_opt)
+                     else:
+                         # If the chosen optimized cost is INF, invalidate overall
+                         if not invalid_optimized: # Avoid redundant logs
+                            logger.warning(f"Optimized strategy for {bom_pn} resulted in INF cost. Invalidating overall Optimized strategy.")
+                         invalid_optimized = True
+                 else:
+                      # If the entry for this part in optimized_strategy is missing or not a dict (shouldn't happen with placeholders)
+                      if not invalid_optimized: logger.warning(f"Missing or invalid optimized strategy entry for {bom_pn}. Invalidating overall Optimized strategy.")
                       invalid_optimized = True
-            else: # Case where NO option (not even fallback) was chosen
-                 if bom_pn not in optimized_strategy:
-                     optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': opt_notes if opt_notes else "N/A (Processing Error)"})
-                 if not invalid_optimized: invalid_optimized = True
+            logger.debug(f"Part {bom_pn} - Post-Optimized Agg: invalid_optimized = {invalid_optimized}")
 
-             # --- Near Miss Calculation ---
-             
+            # --- Near Miss Calculation ---
             part_near_misses = {}
-            if not invalid_optimized and part_min_cost_optimized != np.inf:
-                 # Need constrained_options from the Optimized block above
-                 options_that_failed_constraints = [opt for opt in valid_options if opt not in constrained_options and opt.get('cost', np.inf) != np.inf and opt.get('lead_time', np.inf) != np.inf]
-                 if options_that_failed_constraints:
-                     # Slightly over LT
-                     over_lt_candidates = []
-                     for opt in options_that_failed_constraints:
-                         cost = opt.get('cost', np.inf); lead = opt.get('lead_time', np.inf)
-                         if pd.isna(lead): continue # Skip if lead is NaN (already handled by inf check above)
-                         cost_premium_pct_calc = ((cost - part_min_cost_optimized) / part_min_cost_optimized * 100.0) if part_min_cost_optimized > 1e-9 else 0.0
-                         if lead > target_lt_days and cost_premium_pct_calc <= max_prem_pct: over_lt_candidates.append(opt)
-                     if over_lt_candidates:
-                         over_lt_candidates.sort(key=lambda x: (x.get('lead_time', np.inf) - target_lt_days, x.get('cost', np.inf)))
-                         best_over_lt = over_lt_candidates[0]; over_by_days = best_over_lt.get('lead_time', np.inf) - target_lt_days
-                         if pd.notna(over_by_days) and over_by_days <= 14: part_near_misses['slightly_over_lt'] = {'option': self.create_strategy_entry(best_over_lt), 'over_by_days': over_by_days}
-                     # Slightly over Cost
-                     over_cost_candidates = []
-                     for opt in options_that_failed_constraints:
-                         cost = opt.get('cost', np.inf); lead = opt.get('lead_time', np.inf)
-                         if pd.isna(lead): continue # Skip if lead is NaN
-                         cost_premium_pct_calc = ((cost - part_min_cost_optimized) / part_min_cost_optimized * 100.0) if part_min_cost_optimized > 1e-9 else np.inf
-                         if lead <= target_lt_days and cost_premium_pct_calc > max_prem_pct: over_cost_candidates.append(opt)
-                     if over_cost_candidates:
-                         over_cost_candidates.sort(key=lambda x: ((((x.get('cost', np.inf) - part_min_cost_optimized) / part_min_cost_optimized * 100.0) if part_min_cost_optimized > 1e-9 else np.inf) - max_prem_pct, x.get('lead_time', np.inf)))
-                         best_over_cost = over_cost_candidates[0]; actual_premium = ((best_over_cost.get('cost', np.inf) - part_min_cost_optimized) / part_min_cost_optimized * 100.0) if part_min_cost_optimized > 1e-9 else np.inf
-                         over_by_pct = actual_premium - max_prem_pct
-                         if pd.notna(over_by_pct) and over_by_pct <= 5.0: part_near_misses['slightly_over_cost'] = {'option': self.create_strategy_entry(best_over_cost), 'over_by_pct': over_by_pct}
-            if part_near_misses: near_miss_info[bom_pn] = part_near_misses
- 
+            # Only calculate near misses if optimized didn't fail fundamentally (i.e., base cost was valid)
+            # AND the optimized strategy didn't ultimately fail for this part.
+            if not part_invalid_min and not part_invalid_optimized:
+                baseline_cost = part_min_cost_optimized # Defined earlier
 
-             # --- >>> REVISED Check Stock Availability & Acquisition Time (v3) <<< ---
-             # ... (Acquisition time logic - same as before) ...
-            part_acquire_time = 0
-            total_stock_for_part = sum(opt.get('stock', 0) for opt in valid_options if opt.get('stock', 0) > 0)
+                # Identify options that were valid overall but failed the *optimized constraints*
+                options_that_failed_constraints = []
+                for opt in valid_options_for_calc:
+                     # Check if it was NOT chosen AND not in the constrained list (if one was built)
+                     is_chosen_opt = (chosen_option_opt_ref is not None and opt == chosen_option_opt_ref)
+                     was_constrained = opt in constrained_options # Assumes constrained_options holds refs correctly
+
+                     if not is_chosen_opt and not was_constrained:
+                         # Now re-evaluate WHY it failed constraints (or wasn't considered)
+                         cost = safe_float(opt.get('cost'), default=np.inf)
+                         lead_time = opt.get('lead_time', np.inf)
+                         stock = opt.get('stock', 0)
+                         effective_lead_time = 0 if stock >= qty_needed else lead_time
+
+                         # Basic check: must have finite cost & effective LT to be a near miss candidate
+                         if cost == np.inf or effective_lead_time == np.inf: continue
+
+                         # Reason 1: Failed LT constraint?
+                         failed_lt = effective_lead_time > target_lt_days
+
+                         # Reason 2: Failed Premium constraint?
+                         cost_premium_pct_calc = 0.0
+                         if baseline_cost > 1e-9: cost_premium_pct_calc = ((cost - baseline_cost) / baseline_cost * 100.0)
+                         elif cost > 1e-9: cost_premium_pct_calc = np.inf
+                         failed_prem = cost_premium_pct_calc > max_prem_pct
+
+                         # Add to list if it failed one or both (and has valid cost/eff_lt)
+                         if failed_lt or failed_prem:
+                            options_that_failed_constraints.append({
+                                'option_ref': opt, # Keep ref to original option
+                                'cost': cost,
+                                'effective_lead_time': effective_lead_time,
+                                'premium_pct': cost_premium_pct_calc,
+                                'failed_lt': failed_lt,
+                                'failed_prem': failed_prem
+                            })
+
+                if options_that_failed_constraints:
+                    # Find "Slightly Over LT" miss:
+                    # Must have failed LT, but passed Premium. Sort by how much LT is over, then cost.
+                    over_lt_candidates = [
+                        cand for cand in options_that_failed_constraints
+                        if cand['failed_lt'] and not cand['failed_prem']
+                    ]
+                    if over_lt_candidates:
+                        over_lt_candidates.sort(key=lambda x: (
+                            x['effective_lead_time'] - target_lt_days, # How much over LT (primary)
+                            x['cost'] # Cost (secondary)
+                        ))
+                        best_over_lt_cand = over_lt_candidates[0]
+                        over_by_days = best_over_lt_cand['effective_lead_time'] - target_lt_days
+                        # Define "slightly over" - e.g., within 14 days?
+                        if pd.notna(over_by_days) and over_by_days > 0 and over_by_days <= 14:
+                            part_near_misses['slightly_over_lt'] = {
+                                'option': self.create_strategy_entry(best_over_lt_cand['option_ref']),
+                                'over_by_days': round(over_by_days, 1)
+                            }
+
+                    # Find "Slightly Over Cost" miss:
+                    # Must have failed Premium, but passed LT. Sort by how much Premium is over, then LT.
+                    over_cost_candidates = [
+                        cand for cand in options_that_failed_constraints
+                        if cand['failed_prem'] and not cand['failed_lt']
+                    ]
+                    if over_cost_candidates:
+                         over_cost_candidates.sort(key=lambda x: (
+                            x['premium_pct'] - max_prem_pct, # How much over premium % (primary)
+                            x['effective_lead_time'] # Effective LT (secondary)
+                         ))
+                         best_over_cost_cand = over_cost_candidates[0]
+                         over_by_pct = best_over_cost_cand['premium_pct'] - max_prem_pct
+                         # Define "slightly over" - e.g., within 5%?
+                         if pd.notna(over_by_pct) and over_by_pct > 0 and over_by_pct <= 5.0:
+                             part_near_misses['slightly_over_cost'] = {
+                                 'option': self.create_strategy_entry(best_over_cost_cand['option_ref']),
+                                 'over_by_pct': round(over_by_pct, 2)
+                             }
+
+            if part_near_misses:
+                near_miss_info[bom_pn] = part_near_misses
+
+
+            # --- Check Stock Availability & Acquisition Time ---
+            # This determines if *any* combination of stock covers the need, and the minimum time if not.
+            # It's independent of the specific strategies calculated above.
+            part_acquire_time = 0 # Assume 0 if stock covers
+            total_stock_for_part = sum(safe_float(opt.get('stock'), default=0) for opt in valid_options_for_calc if safe_float(opt.get('stock'), default=0) > 0)
+
             part_can_be_sourced_from_stock = (total_stock_for_part >= qty_needed)
 
             if part_can_be_sourced_from_stock:
-                parts_with_stock_avail += 1; part_acquire_time = 0
-                logger.debug(f"AcqTime Calc [{bom_pn}]: COMBINED stock ({total_stock_for_part}) >= needed ({qty_needed}). part_acquire_time = 0")
-                if not any(opt.get('stock', 0) >= qty_needed for opt in valid_options): logger.info(f"Stock Check [{bom_pn}]: Sufficient total stock ({total_stock_for_part}), but requires multi-supplier buy.")
+                parts_with_stock_avail += 1
+                part_acquire_time = 0 # Can get immediately from combined stock
             else:
-                clear_to_build_stock_only = False
-                min_finite_lead_overall = part_min_lead # Use lead from Fastest calculation
-                stock_gap_parts.append(f"{bom_pn} (Need:{qty_needed}, Have:{total_stock_for_part}, Min LT:{min_finite_lead_overall:.0f}d)" if min_finite_lead_overall != np.inf else f"{bom_pn} (Need:{qty_needed}, Have:{total_stock_for_part}, No LT)")
-                part_acquire_time = min_finite_lead_overall
-                logger.debug(f"AcqTime Calc [{bom_pn}]: COMBINED stock ({total_stock_for_part}) < needed ({qty_needed}). Min FINITE LT overall = {min_finite_lead_overall}. part_acquire_time = {part_acquire_time}")
+                clear_to_build_stock_only = False # Cannot build from stock only if this part is short
+                # Find the minimum finite lead time among ALL valid options for this part
+                min_finite_lead_overall = np.inf
+                for opt in valid_options_for_calc:
+                    lt = opt.get('lead_time', np.inf) # Already pre-processed
+                    if lt != np.inf:
+                        min_finite_lead_overall = min(min_finite_lead_overall, lt)
 
-            # Update overall time needed
+                stock_gap_note = f"{bom_pn} (Need:{qty_needed}, Have:{total_stock_for_part:.0f}"
+                if min_finite_lead_overall != np.inf:
+                    stock_gap_note += f", Min LT:{min_finite_lead_overall:.0f}d)"
+                    part_acquire_time = min_finite_lead_overall
+                else:
+                    stock_gap_note += ", No Finite LT Found)"
+                    part_acquire_time = np.inf # Cannot acquire if no finite LT exists
+
+                stock_gap_parts.append(stock_gap_note)
+
+
+            # Update overall time needed (max of individual part acquire times)
             if part_acquire_time == np.inf:
-                if time_to_acquire_all_parts != np.inf: logger.warning(f"AcqTime Calc [{bom_pn}]: Part unobtainable (acquire_time=inf), setting OVERALL to Inf.")
-                time_to_acquire_all_parts = np.inf
+                time_to_acquire_all_parts = np.inf # If any part is impossible, total time is infinite
             elif time_to_acquire_all_parts != np.inf:
-                old_overall_time = time_to_acquire_all_parts
-                current_part_time = float(part_acquire_time) if pd.notna(part_acquire_time) else 0.0
-                time_to_acquire_all_parts = max(time_to_acquire_all_parts, current_part_time)
-                if time_to_acquire_all_parts > old_overall_time: logger.debug(f"AcqTime Calc [{bom_pn}]: NEW Max acquire time. Max({old_overall_time:.0f}, {current_part_time:.0f}) -> {time_to_acquire_all_parts:.0f}")
-
+                time_to_acquire_all_parts = max(time_to_acquire_all_parts, float(part_acquire_time))
 
         # --- End of Part Loop ---
 
-        # --- Finalize aggregates and store strategies ---
-        if invalid_strict_min: total_bom_cost_strict_min = np.nan; max_lead_time_strict_min = np.inf
-        if invalid_min: total_bom_cost_min = np.nan; max_lead_time_min = np.inf
-        if invalid_max or pd.isna(total_bom_cost_max): total_bom_cost_max = np.nan
-        if invalid_fastest: total_bom_cost_fastest = np.nan; max_lead_time_fastest = np.inf
-        if invalid_optimized: total_bom_cost_optimized = np.nan; max_lead_time_optimized = np.inf # Check this flag
-        if invalid_in_stock: total_bom_cost_in_stock = np.nan; max_lead_time_in_stock = 0
-        if invalid_with_lt: total_bom_cost_with_lt = np.nan; max_lead_time_with_lt = np.inf
+        # --- Handle edge case: If ALL parts were invalid from the start --- 
+        valid_parts_processed = total_parts_analyzed - len(invalid_parts_list) 
+        
+        if valid_parts_processed <= 0 and total_parts_analyzed > 0:
+            logger.warning("All parts in the BOM were invalid or had no valid data. Setting all totals to N/A.")       
+            # Ensure all aggregates are marked as invalid/NaN/Inf <<< CORRECTLY INDENTED HERE
+            total_bom_cost_strict_min = total_bom_cost_min = total_bom_cost_max = total_bom_cost_fastest = np.nan
+            total_bom_cost_optimized = total_bom_cost_in_stock = total_bom_cost_with_lt = np.nan
+            max_lead_time_strict_min = max_lead_time_min = max_lead_time_fastest = np.inf
+            max_lead_time_optimized = max_lead_time_with_lt = np.inf
+            max_lead_time_in_stock = 0 # Stays 0
+            # Force all strategies to be invalid if *no* parts were processable
+            invalid_strict_min = invalid_min = invalid_max = invalid_fastest = invalid_optimized = invalid_in_stock = invalid_with_lt = True
+        
+        # --- Finalize aggregates ---
+        # If any part caused a strategy to be invalid, set the total cost to NaN and LT to Inf
+        if invalid_strict_min:
+            total_bom_cost_strict_min = np.nan
+            max_lead_time_strict_min = np.inf
+        # If not invalid, cost/LT remain as aggregated (could be 0.0 / 0)
 
+        if invalid_min:
+            total_bom_cost_min = np.nan
+            max_lead_time_min = np.inf
+        # If not invalid, cost/LT remain as aggregated
+
+        if invalid_max: # Max is invalid if any processable part had zero cost options
+            total_bom_cost_max = np.nan
+        # If not invalid, cost remains as aggregated
+
+        if invalid_fastest:
+            total_bom_cost_fastest = np.nan
+            max_lead_time_fastest = np.inf
+        # If not invalid, cost/LT remain as aggregated
+
+        if invalid_optimized:
+            total_bom_cost_optimized = np.nan
+            max_lead_time_optimized = np.inf
+        # If not invalid, cost/LT remain as aggregated
+
+        # In Stock: Special case - LT is always 0. Cost is NaN only if flag is set.
+        if invalid_in_stock:
+            total_bom_cost_in_stock = np.nan
+        max_lead_time_in_stock = 0 # Always 0 conceptually
+
+        if invalid_with_lt:
+            total_bom_cost_with_lt = np.nan
+            max_lead_time_with_lt = np.inf
+        # If not invalid, cost/LT remain as aggregated
+
+        # --- Store final strategies for export ---
         self.strategies_for_export = {
              "Strict Lowest Cost": strict_lowest_cost_strategy,
              "Fastest": fastest_strategy,
              "Optimized Strategy": optimized_strategy,
              "Lowest Cost In Stock": in_stock_strategy,
-             "Lowest Cost with Lead Time": with_lt_strategy
+             "Lowest Cost with Lead Time": with_lt_strategy,
+             "Baseline Lowest Cost": lowest_cost_strategy,
         }
         self.analysis_results['near_miss_info'] = near_miss_info
-        logger.debug(f"Strategies calculated. Keys: {list(self.strategies_for_export.keys())}")
-        # ** ADDED: Log final invalid flags for debugging **
-        logger.debug(f"Final Invalid Flags: Strict={invalid_strict_min}, MinOptBase={invalid_min}, Max={invalid_max}, Fastest={invalid_fastest}, Optimized={invalid_optimized}, InStock={invalid_in_stock}, WithLT={invalid_with_lt}")
+
+        # Logging final status (optional, good for debugging)
+        final_invalid_flags = {
+            "Strict": pd.isna(total_bom_cost_strict_min), # Check final state
+            "MinBase": pd.isna(total_bom_cost_min),
+            "Max": pd.isna(total_bom_cost_max),
+            "Fastest": pd.isna(total_bom_cost_fastest),
+            "Optimized": pd.isna(total_bom_cost_optimized),
+            "InStock": pd.isna(total_bom_cost_in_stock),
+            "WithLT": pd.isna(total_bom_cost_with_lt),
+        }
+        logger.debug(f"Final Strategy Status (Cost NaN?): {final_invalid_flags}")
 
 
         # --- Format Summary Data for GUI Table ---
-        def format_num(val, precision=2, suffix=""):
-            if pd.isna(val) or val == np.inf: return "N/A"
-            try: return f"{float(val):.{precision}f}{suffix}"
-            except (ValueError, TypeError): return "N/A"
+        def format_num(val, precision=2, suffix="", nan_inf_placeholder="N/A"):
+            if pd.isna(val) or val == np.inf or val == -np.inf:
+                return nan_inf_placeholder
+            try:
+                # Handle potential non-numeric types safely before formatting
+                numeric_val = float(val)
+                return f"{numeric_val:.{precision}f}{suffix}"
+            except (ValueError, TypeError):
+                return nan_inf_placeholder
+
+
+        # Calculate how many valid parts exist (excluding those with Invalid Qty or No Valid Data)
+        valid_parts_count = total_parts_analyzed - len(invalid_parts_list)
+        # Ensure parts_with_stock_avail doesn't exceed valid_parts_count
+        parts_with_stock_avail = min(parts_with_stock_avail, valid_parts_count) if valid_parts_count >= 0 else 0
+        valid_parts_str = f"{valid_parts_count}" if valid_parts_count >= 0 else "0"
 
         summary_list = [
-            ("Total Parts Analyzed", f"{total_parts_analyzed}"),
-            ("Immediate Kit Possible (Combined Stock)", f"{clear_to_build_stock_only} ({parts_with_stock_avail}/{total_parts_analyzed} parts meet need w/ stock)"),
+            ("Total Parts in BOM", f"{total_parts_analyzed}"),
+            ("Parts Ignored (Invalid Qty/Data)", f"{len(invalid_parts_list)}" if invalid_parts_list else "0"),
+            ("Immediate Kit Possible (Combined Stock)", f"{clear_to_build_stock_only} ({parts_with_stock_avail}/{valid_parts_str} valid parts have combined stock)"),
             ("Est. Time to Full Kit (Days)", format_num(time_to_acquire_all_parts, 0)),
             ("Parts Requiring Lead Time Buys", "; ".join(stock_gap_parts[:5]) + ("..." if len(stock_gap_parts) > 5 else "") if stock_gap_parts else "None"),
             ("Potential Cost Range ($)", f"${format_num(total_bom_cost_min)} / ${format_num(total_bom_cost_max)}"),
             ("Strict Lowest Cost / LT ($ / Days)", f"${format_num(total_bom_cost_strict_min)} / {format_num(max_lead_time_strict_min, 0, 'd')}"),
-            ("Lowest Cost In Stock / LT ($ / Days)", f"${format_num(total_bom_cost_in_stock)} / {format_num(max_lead_time_in_stock, 0, 'd')}"),
+            ("Lowest Cost In Stock / LT ($ / Days)", f"${format_num(total_bom_cost_in_stock)} / {format_num(max_lead_time_in_stock, 0, 'd')}"), # LT is always 0 if valid
             ("Lowest Cost w/ LT / LT ($ / Days)", f"${format_num(total_bom_cost_with_lt)} / {format_num(max_lead_time_with_lt, 0, 'd')}"),
             ("Fastest Strategy / LT ($ / Days)", f"${format_num(total_bom_cost_fastest)} / {format_num(max_lead_time_fastest, 0, 'd')}"),
-            # Add note if Optimized strategy was invalid
-            ("Optimized Strategy / LT ($ / Days)", f"{'$'+format_num(total_bom_cost_optimized) if not invalid_optimized else 'N/A'} / {format_num(max_lead_time_optimized, 0, 'd')}{' (Constraints Failed/Invalid)' if invalid_optimized else ''}"),
+            ("Optimized Strategy / LT ($ / Days)", f"{'$'+format_num(total_bom_cost_optimized) if not invalid_optimized else 'N/A'} / {format_num(max_lead_time_optimized, 0, 'd')}{' (Fallback/Invalid)' if invalid_optimized else ''}"),
         ]
+        if invalid_parts_list:
+             summary_list.append(("Ignored Part Details", "; ".join(invalid_parts_list[:5]) + ("..." if len(invalid_parts_list) > 5 else "")))
+
 
         # --- Tariff Calculation ---
-        # ... (Tariff calculation - same as before) ...
         total_tariff_cost = 0.0
         calculated_bom_cost_for_tariff = 0.0
         total_tariff_pct = 0.0
-        chosen_strategy_for_tariff_calc = {}; tariff_basis_name = "N/A"
+        chosen_strategy_for_tariff_calc = {}
+        tariff_basis_name = "N/A"
+        strategy_valid_for_tariff = False
 
+        # Prioritize Optimized, then Strict for tariff calculation basis
         if not invalid_optimized:
-             chosen_strategy_for_tariff_calc = optimized_strategy; tariff_basis_name = "Optimized"
+            chosen_strategy_for_tariff_calc = optimized_strategy
+            tariff_basis_name = "Optimized"
+            strategy_valid_for_tariff = True
         elif not invalid_strict_min:
-             chosen_strategy_for_tariff_calc = strict_lowest_cost_strategy; tariff_basis_name = "Strict Lowest Cost"
+            chosen_strategy_for_tariff_calc = strict_lowest_cost_strategy
+            tariff_basis_name = "Strict Lowest Cost"
+            strategy_valid_for_tariff = True
 
-        if tariff_basis_name != "N/A":
+        if strategy_valid_for_tariff:
              for bom_pn, chosen_option in chosen_strategy_for_tariff_calc.items():
-                 cost_basis_key = 'cost' # Use 'cost' field from the stored strategy dict
-                 part_cost_basis = chosen_option.get(cost_basis_key, np.inf)
-                 if pd.notna(part_cost_basis) and part_cost_basis != np.inf:
-                     calculated_bom_cost_for_tariff += part_cost_basis
-                     tariff_rate = chosen_option.get('tariff_rate')
-                     if tariff_rate is not None and pd.notna(tariff_rate):
-                          total_tariff_cost += part_cost_basis * tariff_rate
+                 # Ensure chosen_option is a dictionary and has cost
+                 if isinstance(chosen_option, dict):
+                     part_cost_basis = safe_float(chosen_option.get('cost'), default=np.inf)
+                     if part_cost_basis != np.inf:
+                         calculated_bom_cost_for_tariff += part_cost_basis
+                         tariff_rate = safe_float(chosen_option.get('tariff_rate'), default=0.0) # Default tariff to 0 if missing/invalid
+                         if tariff_rate > 0:
+                             total_tariff_cost += part_cost_basis * tariff_rate
+
              if calculated_bom_cost_for_tariff > 1e-9:
-                  total_tariff_pct = (total_tariff_cost / calculated_bom_cost_for_tariff * 100)
+                 total_tariff_pct = (total_tariff_cost / calculated_bom_cost_for_tariff * 100)
+             else:
+                  # Avoid NaN if total cost is zero, percentage is 0
+                  total_tariff_pct = 0.0
+
              summary_list.append((f"Est. Total Tariff Cost ({tariff_basis_name})", f"${format_num(total_tariff_cost)}"))
              summary_list.append((f"Est. Total Tariff % ({tariff_basis_name})", f"{format_num(total_tariff_pct)}%"))
         else:
+             # Both Optimized and Strict strategies were invalid
              summary_list.append(("Est. Total Tariff Cost (N/A)", "N/A"))
              summary_list.append(("Est. Total Tariff % (N/A)", "N/A"))
 
 
         logger.info("Summary metrics calculation complete.")
         return summary_list
-        
+
      
     # --- Predictive Analysis (Prophet, RAG Mock) ---
 
@@ -5542,10 +5673,11 @@ class BOMAnalyzerApp:
             # 5. Optional: Sort DataFrame for Display (Removed for index stability, add back if mapping is robust)
             # Sorting here makes mapping the Treeview ID back to the *original* DataFrame index difficult.
             # If sorting is desired, the mapping in step 7 needs a more robust method (e.g., unique ID).
-            # if 'Date' in df_display.columns:
-            #      df_display['Date_dt'] = pd.to_datetime(df_display['Date'], errors='coerce')
-            #      df_display.sort_values(by=['Date_dt', 'Component'], ascending=[False, True], inplace=True, na_position='last')
-            #      df_display.drop(columns=['Date_dt'], inplace=True)
+            if 'Date' in df_display.columns:
+                df_display['Date_dt'] = pd.to_datetime(df_display['Date'], errors='coerce')
+                # Format as YYYY-MM-DD, leave as empty string if conversion failed
+                df_display['Date'] = df_display['Date_dt'].dt.strftime('%Y-%m-%d').fillna('')
+                df_display = df_display.drop(columns=['Date_dt'])
 
             # 6. Format Other Columns (Optional, but can improve appearance)
             # Ensure all header columns exist in the display DataFrame
