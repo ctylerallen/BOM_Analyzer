@@ -465,6 +465,8 @@ class BOMAnalyzerApp:
         self.alt_popup = None  # Track the alternates popup
         self.summary_popup = None  # Track the summary details popup
 
+        self.export_recommended_btn = None
+        self.ai_recommended_strategy_key = None
         self.root.title(f"{APP_NAME} - v{APP_VERSION}")
         self.root.geometry("1500x900")
         self.root.minsize(1500, 900)  # Lock window size
@@ -780,32 +782,79 @@ class BOMAnalyzerApp:
         # --- Set initial sash position ---
         initial_analysis_sash_pos = 400
         self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
-        
+
         # --- Tab 2: AI & Predictive Analysis ---
         self.predictive_tab = ttk.Frame(self.results_notebook, padding=10)
         self.results_notebook.add(self.predictive_tab, text=" AI & Predictions ")
-        self.predictive_tab.grid_rowconfigure(0, weight=1); self.predictive_tab.grid_rowconfigure(1, weight=0); self.predictive_tab.grid_rowconfigure(2, weight=2); self.predictive_tab.grid_rowconfigure(3, weight=0); self.predictive_tab.grid_columnconfigure(0, weight=1)
-        ai_frame = ttk.LabelFrame(self.predictive_tab, text="AI Analysis & Recommendations", padding=5)
-        ai_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10)); ai_frame.grid_rowconfigure(0, weight=1); ai_frame.grid_columnconfigure(0, weight=1)
-        self.ai_summary_text = scrolledtext.ScrolledText(ai_frame, wrap=tk.WORD, height=25, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), relief="solid", borderwidth=1, state='disabled', background="#fdfdfd", foreground="#111827")
+
+        # --- Grid Configuration for Predictive Tab ---
+        # Row 0: Recommendation Box (fixed height)
+        # Row 1: Separator
+        # Row 2: Main AI Summary Text (expands vertically)
+        # Row 3: Separator
+        # Row 4: Predictions vs Actuals (expands vertically)
+        # Row 5: Accuracy Display Frame (fixed height)
+        self.predictive_tab.grid_rowconfigure(0, weight=0)
+        self.predictive_tab.grid_rowconfigure(1, weight=0)
+        self.predictive_tab.grid_rowconfigure(2, weight=1) # Main text area expands
+        self.predictive_tab.grid_rowconfigure(3, weight=0)
+        self.predictive_tab.grid_rowconfigure(4, weight=2) # Predictions frame expands more
+        self.predictive_tab.grid_rowconfigure(5, weight=0)
+        self.predictive_tab.grid_columnconfigure(0, weight=1) # Content expands horizontally
+
+        # --- 1. Recommendation Frame ---
+        recommend_frame = ttk.LabelFrame(self.predictive_tab, text="AI Recommended Strategy", padding=(10, 5))
+        recommend_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
+        recommend_frame.grid_columnconfigure(0, weight=1) # Label expands horizontally
+        recommend_frame.grid_columnconfigure(1, weight=0) # Button fixed size
+
+        self.ai_recommendation_label = tk.Label(recommend_frame, text="Run AI Summary to get recommendation.",
+                                                 anchor='nw', justify='left', wraplength=800,
+                                                 font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL),
+                                                 bg=self.COLOR_FRAME_BG, # Start with default background
+                                                 fg=self.COLOR_TEXT)
+        self.ai_recommendation_label.grid(row=0, column=0, sticky='nsew', padx=(0,10), pady=5)
+
+        self.export_recommended_btn = ttk.Button(recommend_frame, text="Export Recommended", command=self.export_ai_recommended_strategy, state="disabled")
+        self.export_recommended_btn.grid(row=0, column=1, sticky='ne', padx=5, pady=5)
+        self.create_tooltip(self.export_recommended_btn, "Export the specific purchasing strategy recommended by the AI analysis.")
+
+        # --- 2. Separator ---
+        ttk.Separator(self.predictive_tab, orient=tk.HORIZONTAL).grid(row=1, column=0, sticky="ew", pady=(5, 5), padx=5)
+
+        # --- 3. Main AI Analysis Frame (ScrolledText) ---
+        ai_frame = ttk.LabelFrame(self.predictive_tab, text="Full AI Analysis & Details", padding=5)
+        ai_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10)) # Grid to row 2
+        ai_frame.grid_rowconfigure(0, weight=1); ai_frame.grid_columnconfigure(0, weight=1)
+
+        self.ai_summary_text = scrolledtext.ScrolledText(ai_frame, wrap=tk.WORD, height=15, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), relief="solid", borderwidth=1, state='disabled', background="#fdfdfd", foreground="#111827")
         self.ai_summary_text.grid(row=0, column=0, sticky="nsew")
+
+        # Configure tags for this main text area
         self.ai_summary_text.tag_configure("critical", foreground=self.COLOR_ERROR, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
         self.ai_summary_text.tag_configure("warning", foreground=self.COLOR_WARN, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
-        self.ai_summary_text.insert(tk.END, "Run analysis and then click 'AI Summary' (requires OpenAI key).")
-        ttk.Separator(self.predictive_tab, orient=tk.HORIZONTAL).grid(row=1, column=0, sticky="ew", pady=(10, 10), padx=5)
+        self.ai_summary_text.tag_configure("bold", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+
+        self.ai_summary_text.insert(tk.END, "Run AI Summary to view full analysis details.")
+
+        # --- 4. Separator ---
+        ttk.Separator(self.predictive_tab, orient=tk.HORIZONTAL).grid(row=3, column=0, sticky="ew", pady=(10, 10), padx=5) # Grid to row 3
+
+        # --- 5. Predictions vs Actuals Frame ---
         pred_update_frame = ttk.LabelFrame(self.predictive_tab, text="Predictions vs Actuals", padding=5)
-        pred_update_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10)); 
-        pred_update_frame.grid_columnconfigure(0, weight=1);    pred_update_frame.grid_rowconfigure(1, weight=1)
-        pred_tree_frame = ttk.Frame(pred_update_frame); pred_tree_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(5,5)); 
+        pred_update_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 10)); # Grid to row 4
+        # Configure inner grid/widgets for predictions... (rest of this section unchanged)
+        pred_update_frame.grid_columnconfigure(0, weight=1); pred_update_frame.grid_rowconfigure(1, weight=1)
+        pred_tree_frame = ttk.Frame(pred_update_frame); pred_tree_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(5,5));
         pred_tree_frame.grid_rowconfigure(0, weight=1);
         pred_tree_frame.grid_columnconfigure(0, weight=1)
-        pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal") 
-        pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical")   
+        pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal")
+        pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical")
         pred_col_widths = {c: 75 for c in self.pred_header}; pred_col_widths.update({'Component': 180, 'Date': 80, 'Stock_Probability': 65, 'Real_Lead': 60, 'Real_Cost': 70, 'Real_Stock': 60, 'Prophet_Ld_Acc': 60, 'Prophet_Cost_Acc': 60, 'RAG_Ld_Acc': 60, 'RAG_Cost_Acc': 60, 'AI_Ld_Acc': 60, 'AI_Cost_Acc': 60})
         pred_col_align = {c: 'center' for c in self.pred_header}; pred_col_align.update({'Component': 'w'})
         pred_col_tooltips = {'Component': 'Consolidated Component Name (Mfg + MPN)', 'Date': 'Date prediction generated.', 'Prophet_Lead': 'Prophet Lead Time (d)', 'Prophet_Cost': 'Prophet Unit Cost ($)', 'RAG_Lead': 'RAG Lead Time Range (d)', 'RAG_Cost': 'RAG Unit Cost Range ($)', 'AI_Lead': 'AI Combined Lead Time (d)', 'AI_Cost': 'AI Combined Unit Cost ($)', 'Stock_Probability': 'Predicted Stock Probability (%)', 'Real_Lead': 'ACTUAL Lead Time (d)', 'Real_Cost': 'ACTUAL Unit Cost ($)', 'Real_Stock': 'ACTUAL Stock OK?', 'Prophet_Ld_Acc': 'Prophet LT Acc %', 'Prophet_Cost_Acc': 'Prophet Cost Acc %', 'RAG_Ld_Acc': 'RAG LT Acc %', 'RAG_Cost_Acc': 'RAG Cost Acc %', 'AI_Ld_Acc': 'AI LT Acc %', 'AI_Cost_Acc': 'AI Cost Acc %'}
         self.predictions_tree = ttk.Treeview(pred_tree_frame, columns=self.pred_header, show="headings", height=10, selectmode="browse",                                              yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set)
-        
+
         self.pred_column_tooltips = {}
         for col in self.pred_header:
             width = pred_col_widths.get(col, 75); align = pred_col_align.get(col, 'center'); heading_text = col.replace('_',' '); tooltip_text = pred_col_tooltips.get(col, heading_text)
@@ -813,12 +862,9 @@ class BOMAnalyzerApp:
             self.predictions_tree.column(col, width=width, minwidth=10, stretch=False, anchor=align)
             self.pred_column_tooltips[col] = tooltip_text
         pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical", command=self.predictions_tree.yview); pred_hsb = ttk.Scrollbar(pred_tree_frame, orient="horizontal", command=self.predictions_tree.xview)
-        self.predictions_tree.configure(yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set); 
-        # Configure scrollbar commands
+        self.predictions_tree.configure(yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set);
         pred_hsb.config(command=self.predictions_tree.xview)
         pred_vsb.config(command=self.predictions_tree.yview)
-
-        # Pack the widgets
         pred_hsb.pack(side=tk.BOTTOM, fill=tk.X)
         pred_vsb.pack(side=tk.RIGHT, fill=tk.Y)
         self.predictions_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -832,10 +878,11 @@ class BOMAnalyzerApp:
         self.save_pred_update_btn = ttk.Button(update_inputs_frame, text="Save", command=self.save_prediction_updates, state="disabled"); self.save_pred_update_btn.pack(side=tk.LEFT); self.create_tooltip(self.save_pred_update_btn, "Save entered Actuals to the predictions CSV for the selected row.")
         self.selected_pred_id_label = ttk.Label(pred_actions_frame, text=" ", style="Hint.TLabel"); self.selected_pred_id_label.pack(side=tk.RIGHT, padx=(5, 0))
         self.predictions_tree.bind("<Motion>", self._on_predictions_tree_motion); self.predictions_tree.bind("<Leave>", self._on_predictions_tree_leave); self.predictions_tree.bind('<<TreeviewSelect>>', self.on_prediction_select)
-        
-        # Accuracy Display Frame
+
+        # --- 6. Accuracy Display Frame ---
         avg_frame = ttk.LabelFrame(self.predictive_tab, text="Average Prediction Accuracy (%)", padding=5)
-        avg_frame.grid(row=3, column=0, sticky='nsew', pady=(5, 0)); avg_frame.columnconfigure((1, 2, 3, 4), weight=1)
+        avg_frame.grid(row=5, column=0, sticky='nsew', pady=(5, 0)); # Grid to row 5
+        avg_frame.columnconfigure((1, 2, 3, 4), weight=1)
         self.avg_acc_labels = {}
         headers = ["Model", "Ld Acc", "Cost Acc", "# Points"]
         models = ["Prophet", "RAG", "AI"]
@@ -1176,75 +1223,132 @@ class BOMAnalyzerApp:
         # Get data (might need specific processing per plot)
         plot_data = None
         if self.analysis_results and self.analysis_results.get("gui_entries"):
-             plot_data = pd.DataFrame(self.analysis_results.get("gui_entries", []))
-             # Convert numeric columns correctly
-             for col in ['RiskScore', 'BestTotalCost', 'BestCostLT']:
-                 if col in plot_data: plot_data[col] = pd.to_numeric(plot_data[col], errors='coerce')
+             # Make a copy to avoid modifying the original analysis results
+             plot_data = pd.DataFrame(self.analysis_results.get("gui_entries", [])).copy()
+             # Convert numeric columns correctly FOR PLOTTING (do this inside plot functions ideally)
+             # For hover data, we ensure columns exist in the df passed to the plot function
+             # Let's move the conversion to numeric inside the specific plot functions where needed for plotting axes.
+             # logger.debug(f"Initial plot_data for '{selected_plot}':\n{plot_data.head().to_string()}") # Optional: Check data before plotting
 
-        # Clear previous plot widgets
+        # Clear previous plot widgets (Canvas, Toolbar, Annotation)
         self.clear_visualization()
+        self.plot_annotation = None # Ensure annotation is reset
 
-        # Create new Figure and Canvas
-        # Use sns styles for nicer look if desired
-        # sns.set_theme(style="whitegrid") # Example seaborn style
-        fig = Figure(figsize=(10, 6), dpi=100, facecolor=self.COLOR_BACKGROUND) # Use background color
-        ax = fig.add_subplot(111)
-        ax.set_facecolor(self.COLOR_BACKGROUND) # Match axes background
+        # --- Start Change: Vertical Layout using GridSpec ---
+        fig = Figure(figsize=(8, 5), dpi=100, facecolor=self.COLOR_BACKGROUND)
+
+        # Create a GridSpec: 2 rows, 1 column. Give plot more height.
+        gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0.3) # Adjust ratio/hspace as needed
+        ax_main_plot = fig.add_subplot(gs[0, 0]) # Main plot in the top row
+        ax_main_plot.set_facecolor(self.COLOR_BACKGROUND)
+        # --- End Change ---
 
         # Call specific plot function based on selection
         try:
+            high_risk_list_text = None # Variable to store text from plot function
+            self._current_plot_specific_df = pd.DataFrame() # Reset specific df
+
+            # --- Log the plot_data being used ---
+            if plot_data is not None:
+                logger.debug(f"DataFrame 'plot_data' PASSED to plot functions (head):\n{plot_data.head().to_string()}")
+                logger.debug(f"Columns in 'plot_data': {plot_data.columns.tolist()}")
+                logger.debug(f"Data types in 'plot_data':\n{plot_data.dtypes}")
+
+            # --- Plot Function Calls ---
             if selected_plot == "Risk Score Distribution" and plot_data is not None:
-                self.plot_risk_distribution(ax, plot_data)
+                # Ensure RiskScore is numeric before passing for filtering/plotting
+                plot_data['RiskScore'] = pd.to_numeric(plot_data['RiskScore'], errors='coerce') # Coerce directly here
+                high_risk_list_text = self.plot_risk_distribution(ax_main_plot, plot_data)
+                # For risk plot, hover isn't set up, so store the base data potentially used
+                self._current_plot_specific_df = plot_data.copy()
+
             elif selected_plot == "Cost Distribution (Optimized)" and plot_data is not None:
-                 self.plot_cost_distribution(ax, plot_data)
+                 plot_data['BestTotalCost'] = pd.to_numeric(plot_data['BestTotalCost'], errors='coerce') # Convert for plot
+                 self.plot_cost_distribution(ax_main_plot, plot_data)
+
             elif selected_plot == "Lead Time Distribution (Optimized)" and plot_data is not None:
-                 self.plot_lead_time_distribution(ax, plot_data)
+                 plot_data['BestCostLT'] = pd.to_numeric(plot_data['BestCostLT'], errors='coerce') # Convert for plot
+                 self.plot_lead_time_distribution(ax_main_plot, plot_data)
+
             elif selected_plot == "Cost vs Lead Time (Optimized)" and plot_data is not None:
-                 self._current_plot_specific_df = self.plot_cost_vs_lead_time(ax, plot_data)
-                 if self._current_plot_specific_df is None: # Handle case where plot function failed early
-                     self._current_plot_specific_df = pd.DataFrame()
-            elif selected_plot == "Prediction Accuracy Comparison" and self.predictions_df is not None:
-                 self.plot_prediction_accuracy(ax) # Uses self.predictions_df directly
-                 self._current_plot_specific_df = self.predictions_df
-            else:
-                 ax.text(0.5, 0.5, 'Selected plot cannot be generated\n(Check data availability)', \
-                         horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-                 self._current_plot_specific_df = pd.DataFrame()
+                 # --- Start Change: Convert columns BEFORE calling plot function ---
+                 plot_data['BestTotalCost'] = pd.to_numeric(plot_data['BestTotalCost'], errors='coerce')
+                 plot_data['BestCostLT'] = pd.to_numeric(plot_data['BestCostLT'], errors='coerce')
+                 # --- End Change ---
+                 # Conversion to numeric happens inside plot_cost_vs_lead_time before dropna
+                 returned_df = self.plot_cost_vs_lead_time(ax_main_plot, plot_data) # Pass converted data
+                 self._current_plot_specific_df = returned_df if returned_df is not None else pd.DataFrame()
 
-            fig.tight_layout(pad=2.0) # Adjust padding
+            elif selected_plot == "Country of Origin Distribution" and plot_data is not None:
+                 self.plot_coo_distribution(ax_main_plot, plot_data)
+                 self._current_plot_specific_df = plot_data.copy() # Store base data
 
-            # Embed canvas in Tkinter frame
+            elif selected_plot == "Prediction Accuracy Comparison":
+                if self.predictions_df is not None and not self.predictions_df.empty:
+                    self.plot_prediction_accuracy(ax_main_plot)
+                    self._current_plot_specific_df = self.predictions_df.copy() # Store predictions df
+                else:
+                     ax_main_plot.text(0.5, 0.5, 'No prediction data available.', ha='center', va='center', transform=ax_main_plot.transAxes)
+
+            else: # No specific plot matched or plot_data was None
+                 ax_main_plot.text(0.5, 0.5, 'Selected plot cannot be generated\n(Check data availability)', \
+                         horizontalalignment='center', verticalalignment='center', transform=ax_main_plot.transAxes)
+
+            # --- Add High Risk List Text Subplot (if generated) ---
+            if high_risk_list_text is not None:
+                ax_list = fig.add_subplot(gs[1, 0]) # Create subplot in the bottom row
+                ax_list.set_facecolor(self.COLOR_FRAME_BG)
+                ax_list.set_xticks([])
+                ax_list.set_yticks([])
+                for spine in ax_list.spines.values(): spine.set_visible(False)
+                ax_list.text(0.01, 0.98, high_risk_list_text,
+                             ha='left', va='top', fontsize=12, family='monospace', wrap=False,
+                             transform=ax_list.transAxes)
+
+            # --- Layout Adjustments ---
+            try:
+                # Adjust spacing, especially hspace for vertical gap
+                fig.subplots_adjust(left=0.1, right=0.98, top=0.92, bottom=0.1, hspace=0.4) # Increased hspace
+            except ValueError as layout_err:
+                 logger.warning(f"Layout adjustment failed: {layout_err}")
+
+            # --- Embed Canvas ---
             self.fig_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
             self.fig_canvas.draw()
             canvas_widget = self.fig_canvas.get_tk_widget()
             canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-            # Add toolbar
+            # --- Configure Hover Annotation (only if Cost vs LT plot) ---
+            if selected_plot == "Cost vs Lead Time (Optimized)" and not self._current_plot_specific_df.empty:
+                self.plot_annotation = ax_main_plot.annotate("", xy=(0,0), xytext=(10,10),
+                                                              textcoords="offset points",
+                                                              bbox=dict(boxstyle="round,pad=0.5", fc="yellow", alpha=0.75),
+                                                              arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+                                                              visible=False, fontsize=10, backgroundcolor='#FFFFE0')
+                self._current_plot_ax = ax_main_plot
+                self.fig_canvas.mpl_connect('motion_notify_event', self._on_plot_hover)
+            else:
+                 self.plot_annotation = None # Ensure annotation is None for other plots
+                 self._current_plot_ax = None
+
+
+            # --- Add Toolbar ---
             self.toolbar = NavigationToolbar2Tk(self.fig_canvas, self.plot_frame)
             self.toolbar.update()
-            toolbar_widget = self.toolbar # Keep reference if needed
+            toolbar_widget = self.toolbar
             toolbar_widget.pack(side=tk.BOTTOM, fill=tk.X)
-
-            self.plot_annotation = ax.annotate("", xy=(0,0), xytext=(10,10), # Offset from point
-                                                textcoords="offset points",
-                                                bbox=dict(boxstyle="round,pad=0.5", fc="yellow", alpha=0.75),
-                                                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
-                                                visible=False, # Start hidden
-                                                fontsize=8, # Smaller font for annotation
-                                                backgroundcolor='#FFFFE0') # Light yellow background for annotation
-
-            # Store the plot_data used for potential lookup in the hover event
-            # Use .copy() to avoid modifying the original data if further processing happens
-            self._current_plot_ax = ax # Store the axes object
-
-            # Connect the motion notify event
-            self.fig_canvas.mpl_connect('motion_notify_event', self._on_plot_hover)
-             # --- End Change ---
 
         except Exception as e:
              logger.error(f"Failed to generate plot '{selected_plot}': {e}", exc_info=True)
-             ax.text(0.5, 0.5, f'Error generating plot:\n{e}', color='red', \
-                     horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+             # Use ax_main_plot for error message if it exists, else create basic axes
+             ax_err = ax_main_plot if 'ax_main_plot' in locals() else fig.add_subplot(111)
+             ax_err.text(0.5, 0.5, f'Error generating plot:\n{e}', color='red', \
+                     horizontalalignment='center', verticalalignment='center', transform=ax_err.transAxes)
+             # Still draw the canvas to show the error
+             if not self.fig_canvas: # Ensure canvas exists even on error
+                 self.fig_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
+                 self.fig_canvas.draw()
+                 self.fig_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 
     def plot_lead_time_distribution(self, ax, data):
@@ -1359,49 +1463,102 @@ class BOMAnalyzerApp:
         # Clear any matplotlib figures to release memory (optional but good practice)
         plt.close('all')
 
-    # --- Example Plotting Methods (Add more as needed) ---
-    def plot_risk_distribution(self, ax, data):
-        """Plots a histogram of Risk Scores."""
+    
+    def plot_risk_distribution(self, ax_main, data): # Argument name is ax_main
+        """Plots a histogram of Risk Scores and lists high-risk parts."""
+
         if 'RiskScore' not in data.columns or data['RiskScore'].isnull().all():
-             ax.text(0.5, 0.5, 'No valid Risk Score data available.', ha='center', va='center', transform=ax.transAxes)
-             return
+             ax_main.text(0.5, 0.5, 'No valid Risk Score data available.', ha='center', va='center', transform=ax_main.transAxes)
+             return None # Return None if no data
 
-        risk_scores_valid = data['RiskScore'].dropna() # Get valid scores
+        # Make a copy to avoid SettingWithCopyWarning later
+        data = data.copy()
 
-        if risk_scores_valid.empty:
-             ax.text(0.5, 0.5, 'No valid Risk Score data points found after dropping N/A.', ha='center', va='center', transform=ax.transAxes)
-             return
-            
-        # Define bins and colors based on risk categories
-        bins = [self.RISK_CATEGORIES['low'][0], self.RISK_CATEGORIES['low'][1] + 0.1, # Add small overlap
+        # --- Convert RiskScore to numeric early ---
+        # Convert to numeric, coercing errors (like 'N/A') to NaN
+        data['RiskScoreNumeric'] = pd.to_numeric(data['RiskScore'], errors='coerce')
+        # Drop rows where numeric conversion failed BEFORE calculating valid series for hist
+        risk_scores_valid_series = data['RiskScoreNumeric'].dropna()
+
+        if risk_scores_valid_series.empty:
+             ax_main.text(0.5, 0.5, 'No valid Risk Score data points found after dropping N/A.', ha='center', va='center', transform=ax_main.transAxes)
+             return None # Return None if no valid scores
+
+        # --- Histogram Plotting ---
+        bins = [self.RISK_CATEGORIES['low'][0], self.RISK_CATEGORIES['low'][1] + 0.1,
                 self.RISK_CATEGORIES['moderate'][1] + 0.1, self.RISK_CATEGORIES['high'][1]]
-
-        # Use seaborn for potentially nicer histogram
-        #sns.histplot(data=data, x='RiskScore', bins=bins, palette=colors, ax=ax, hue='RiskScore', hue_order=bins[:-1], legend=False)
-
-        n, bins_out, patches = ax.hist(risk_scores_valid, bins=bins, color=self.COLOR_ACCENT)
-        colors = [self.COLOR_SUCCESS, self.COLOR_WARN, self.COLOR_ERROR] # Green, Orange, Red
+        n, bins_out, patches = ax_main.hist(risk_scores_valid_series, bins=bins, color=self.COLOR_ACCENT) # Use the numeric series
+        colors = [self.COLOR_SUCCESS, self.COLOR_WARN, self.COLOR_ERROR]
         bin_centers = 0.5 * (bins_out[1:] + bins_out[:-1])
-        for count, patch, center in zip(n, patches, bin_centers):
-             if center <= self.RISK_CATEGORIES['low'][1]:
-                  patch.set_facecolor(self.COLOR_SUCCESS)
-             elif center <= self.RISK_CATEGORIES['moderate'][1]:
-                  patch.set_facecolor(self.COLOR_WARN)
-             else:
-                  patch.set_facecolor(self.COLOR_ERROR)
-        
-        ax.set_title('Part Risk Score Distribution', fontsize=10)
-        ax.set_xlabel('Risk Score (0-10)', fontsize=9)
-        ax.set_ylabel('Number of Parts', fontsize=9)
-        ax.tick_params(axis='both', which='major', labelsize=8)
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-        # Add vertical lines for categories
-        max_y = ax.get_ylim()[1] # Use current y-limit
-        text_y = max_y * 0.9 if max_y > 0 else 1 # Position text near top
-        ax.text(self.RISK_CATEGORIES['low'][1]/2, ax.get_ylim()[1]*0.9, 'Low', ha='center', fontsize=8)
-        ax.text((self.RISK_CATEGORIES['low'][1] + self.RISK_CATEGORIES['moderate'][1])/2, ax.get_ylim()[1]*0.9, 'Moderate', ha='center', fontsize=8)
-        ax.text((self.RISK_CATEGORIES['moderate'][1] + self.RISK_CATEGORIES['high'][1])/2, ax.get_ylim()[1]*0.9, 'High', ha='center', fontsize=8)
 
+        for count, patch, center in zip(n, patches, bin_centers):
+             if center <= self.RISK_CATEGORIES['low'][1]: patch.set_facecolor(self.COLOR_SUCCESS)
+             elif center <= self.RISK_CATEGORIES['moderate'][1]: patch.set_facecolor(self.COLOR_WARN)
+             else: patch.set_facecolor(self.COLOR_ERROR)
+
+        ax_main.set_title('Part Risk Score Distribution', fontsize=10)
+        ax_main.set_xlabel('Risk Score (0-10)', fontsize=9)
+        ax_main.set_ylabel('Number of Parts', fontsize=9)
+        ax_main.tick_params(axis='both', which='major', labelsize=8)
+        ax_main.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # --- High Risk Part List Calculation ---
+        high_risk_threshold = self.RISK_CATEGORIES['high'][0]
+
+        # --- Start Change: Debug Filter Data ---
+        logger.debug(f"Data BEFORE high-risk filtering (showing RiskScoreNumeric and Status):\n{data[['PartNumber', 'RiskScore', 'RiskScoreNumeric', 'Status']].to_string()}")
+
+        # Define filter conditions separately for logging
+        # Use the 'RiskScoreNumeric' column we created
+        numeric_risk_filter = (data['RiskScoreNumeric'] >= high_risk_threshold)
+        unknown_status_filter = (data['Status'] == 'Unknown') # Check original Status column
+        logger.debug(f"Numeric Risk Filter (>={high_risk_threshold}) results:\n{numeric_risk_filter.to_string()}")
+        logger.debug(f"Unknown Status Filter results:\n{unknown_status_filter.to_string()}")
+
+        # Apply combined filter using boolean OR
+        high_risk_filter = numeric_risk_filter | unknown_status_filter
+        logger.debug(f"Combined Filter results:\n{high_risk_filter.to_string()}")
+        # Apply filter to the DataFrame using .loc for boolean indexing
+        high_risk_df = data.loc[high_risk_filter].copy()
+        logger.debug(f"DataFrame AFTER high-risk filtering:\n{high_risk_df[['PartNumber', 'RiskScoreNumeric', 'Status']].to_string()}")
+        # --- End Change ---
+
+        # Prepare text for the list
+        list_text = "High Risk Parts (>={:.1f} or Unknown):\n".format(high_risk_threshold)
+        list_text += "--------------------------\n"
+        if high_risk_df.empty:
+            list_text += "(None)"
+            logger.debug("High risk list is empty after filtering.")
+        else:
+            # Sort by risk score descending for the list (use the numeric column)
+            high_risk_df = high_risk_df.sort_values('RiskScoreNumeric', ascending=False, na_position='last')
+            max_list_items = 15 # Limit the number of items shown
+            logger.debug(f"Iterating through high_risk_df (showing max {max_list_items}):\n{high_risk_df.head(max_list_items).to_string()}") # ADDED LOG
+            for idx, row in high_risk_df.head(max_list_items).iterrows():
+                 logger.debug(f"  Processing row index {idx}, Raw PN: {row.get('PartNumber')}, Raw MfgPN: {row.get('MfgPN')}") # ADDED LOG
+                 # --- Start Change: Prioritize BOM PN if MfgPN is 'NOT FOUND' ---
+                 mfg_pn_val = row.get('MfgPN', 'N/A')
+                 bom_pn_val = row.get('PartNumber', 'N/A')
+                 # Assign part_id based on availability and 'NOT FOUND' status
+                 part_id = bom_pn_val if mfg_pn_val == 'NOT FOUND' or mfg_pn_val == 'N/A' or pd.isna(mfg_pn_val) else mfg_pn_val
+                 # --- End Change ---
+
+                 # --- REMOVED the explicit skip for 'NOT FOUND' ---
+
+                 score_numeric = row.get('RiskScoreNumeric', np.nan)
+                 score_display = f"{score_numeric:.1f}" if pd.notna(score_numeric) else row.get('RiskScore', 'N/A') # Use numeric score for display
+                 status = row.get('Status', 'N/A')
+                 # Truncate long part numbers
+                 part_id_display = (str(part_id)[:18] + '..') if len(str(part_id)) > 20 else str(part_id) # Ensure part_id is str
+                 list_text += f"{part_id_display:<20} ({score_display}) [{status}]\n" # Format into columns
+            if len(high_risk_df) > max_list_items:
+                 list_text += f"... ({len(high_risk_df) - max_list_items} more)"
+
+        # Drop the temporary numeric column - doing this on the original 'data' was wrong,
+        # it doesn't affect the caller. No need to drop here.
+        # data.drop(columns=['RiskScoreNumeric'], inplace=True, errors='ignore')
+
+        return list_text # Return the generated text list
     
     def plot_cost_distribution(self, ax, data):
         """Plots a histogram or boxplot of Optimized Total Costs."""
@@ -1725,6 +1882,21 @@ class BOMAnalyzerApp:
             logger.warning("Ignoring Tkinter progress update error, likely during shutdown.")
         except Exception as e:
             logger.error(f"Error updating progress bar: {e}", exc_info=True)
+
+    def export_ai_recommended_strategy(self):
+        """Exports the specific strategy recommended by the AI."""
+        logger.info("Export AI Recommended Strategy button clicked.")
+        if not self.ai_recommended_strategy_key:
+            messagebox.showwarning("No Recommendation", "AI summary has not been run or no valid strategy recommendation was found.")
+            return
+        if not self.strategies_for_export:
+             messagebox.showerror("Export Error", "Strategy data is not available (run analysis first).")
+             return
+
+        logger.info(f"Attempting to export recommended strategy: '{self.ai_recommended_strategy_key}'")
+        # Call the existing export function with the parsed key
+        self.export_strategy_gui(self.ai_recommended_strategy_key)
+        
 
     def update_rate_limit_display(self):
         """Updates the API rate limit label. Should be called from main thread or scheduled."""
@@ -2631,6 +2803,9 @@ class BOMAnalyzerApp:
 
             self.validate_inputs() # Re-validate to potentially enable run button
             self.update_export_buttons_state() # Disable export buttons
+            if hasattr(self, 'export_recommended_btn') and self.export_recommended_btn:
+                 self.export_recommended_btn.config(state="disabled")
+            self.ai_recommended_strategy_key = None 
 
         except ValueError as ve:
              self.bom_df = None; self.bom_filepath = None
@@ -6174,13 +6349,11 @@ class BOMAnalyzerApp:
             prompt += "Provide concise, strategic recommendations for executive review. Use Markdown formatting. **CRITICAL:** Clearly highlight any parts excluded due to EOL, Discontinuation, or being Unknown/Not Found. Explicitly state that these exclusions impact the accuracy of overall metrics like 'Est. Time to Full Kit'. Use **bold red** markers like `**CRITICAL ACTION:**` or `**WARNING:**` for these high-priority issues and related recommendations.\n\n"
             self.update_progress_threadsafe(20, 100, "Constructed prompt for AI...")
             prompt += "Focus on:\n"
-            prompt += "1.  **Optimal Sourcing Strategy:** Recommend ONE strategy (Lowest Cost, Fastest, or Optimized) and justify it. Quantify trade-offs ($ vs. Days).\n"
-
+            prompt += "1.  **Optimal Sourcing Strategy:** Start this section ONLY with the exact line `RECOMMENDED_STRATEGY: [Strategy Name]` where [Strategy Name] is one of: 'Strict Lowest Cost', 'Lowest Cost In Stock', 'Lowest Cost with Lead Time', 'Fastest', 'Optimized Strategy'. Then, justify the recommendation.\n"
             prompt += "2.  **CRITICAL PART ISSUES (Highlight Urgency!):**\n"
             prompt += "    *   Identify ALL EOL/Discontinued/Unknown parts. Use **ALL CAPS** and prefix with `CRITICAL:`. State explicitly these parts are **EXCLUDED** from overall cost/lead time calculations.\n"
             prompt += "    *   For these critical parts, recommend **immediate actions** (e.g., `CRITICAL: Validate alternate for EOL part [MfgPN]`, `CRITICAL: Identify source for Unknown part [BOM PN]`, `CRITICAL: Initiate redesign if no alternate found for [MfgPN]`).\n"
             prompt += "    *   Identify any other **High Risk** (Score > 6.5) Active parts. Prefix with `WARNING:`. Recommend actions (e.g., `WARNING: Secure second source for [MfgPN]`, `WARNING: Increase buffer stock for sole-source [MfgPN]`).\n"
-
             prompt += "3.  **Schedule & Stock Risk:**\n"
             prompt += "    *   State clearly if the 'Est. Time to Full Kit' metric is potentially **MISLEADING** because critical parts were excluded. Use **bold text**.\n"
             prompt += "    *   If there are parts requiring lead time buys ('Stock Gap Parts'), prefix this finding with `WARNING:`. Recommend confirming lead times.\n"
@@ -6225,40 +6398,130 @@ class BOMAnalyzerApp:
 
             # --- Schedule GUI Update ---
             def update_gui():
-                logger.debug("AI Summary Thread: Executing update_gui`, `EOL`, `Unknown`) and apply pre-defined color tags to highlight them in the `ScrolledText` widget.")
+                """ Inner function to update GUI elements from the AI summary thread. """
+                logger.debug("AI Summary Thread: Executing update_gui (with tagging and separation).")
                 try:
-                    # Basic check - still good practice
-                    if not hasattr(self, 'ai_summary_text') or not self.ai_summary_text.winfo_exists():
-                        logger.error("AI Summary Text widget missing.")
-                        return
+                    # Ensure necessary widgets exist
+                    if not all(hasattr(self, w) and getattr(self, w) and getattr(self, w).winfo_exists()
+                               for w in ['ai_summary_text', 'ai_recommendation_label', 'export_recommended_btn']):
+                        logger.error("One or more required AI summary widgets missing during GUI update.")
+                        # Attempt to continue if possible, but button/label updates might fail
+                        export_button_exists = False # Assume button doesn't exist if check fails
+                    else:
+                        export_button_exists = True
 
+                    # --- Start Parsing, Separation, Tagging, and Button Logic ---
+                    # Configure main text area for writing
                     self.ai_summary_text.configure(state='normal')
                     self.ai_summary_text.delete(1.0, tk.END)
+                    # Clear previous recommendation label and set default style
+                    self.ai_recommendation_label.config(text="Processing recommendation...",
+                                                         bg=self.COLOR_FRAME_BG, # Default BG
+                                                         fg=self.COLOR_TEXT) # Default FG
 
-                    # Define keywords for tagging (case-insensitive)
-                    critical_keywords = ["critical", "eol", "discontinued", "unknown", "not found", "excluded", "invalid qty", "must replace", "redesign"]
-                    warning_keywords = ["warning", "moderate risk", "stock gap", "exceeds target", "n/a", "fallback"]
+                    # Define keywords for tagging (case-insensitive) - Adjusted keywords
+                    critical_keywords = ["critical:", "critical action:", "eol part", "discontinued part", "unknown part", "not found part", "excluded part", "must replace", "redesign required", "immediate action"]
+                    warning_keywords = ["warning:", "moderate risk:", "stock gap", "exceeds target", "potentially misleading", "n/a", "fallback strategy"]
 
-                    response_lines = ai_response.splitlines() # Split into lines
+                    # Reset recommended strategy key before parsing
+                    self.ai_recommended_strategy_key = None
+                    recommendation_section_active = False # Flag to track if we are inside the recommended section
+                    valid_strategy_keys = list(self.strategies_for_export.keys()) # Get valid keys at runtime
 
-                    for line in response_lines:
-                        tags_to_apply = () # Tuple for tags on this line
-                        line_lower = line.lower() # Check lowercase version
+                    recommendation_lines = []
+                    other_analysis_lines = []
+                    recommendation_found = False
+                    recommendation_header_line = ""
 
-                        # Check for critical keywords first
-                        if any(keyword in line_lower for keyword in critical_keywords):
-                            tags_to_apply = ('critical',)
-                        # If not critical, check for warning keywords
+                    response_lines = ai_response.splitlines()
+
+                    # --- First Pass: Extract Recommendation & Separate Lines ---
+                    for i, line in enumerate(response_lines):
+                        line_upper_strip = line.strip().upper() # Check case-insensitive
+                        line_original_strip = line.strip() # Keep original case for parsing
+                        recommendation_marker = "RECOMMENDED_STRATEGY:" # The target marker
+
+                        marker_pos = line_upper_strip.find(recommendation_marker)
+
+                        if marker_pos != -1 and not recommendation_found: # Find first occurrence
+                            recommendation_found = True
+                            try:
+                                # Extract text *after* the marker
+                                extracted_key_raw = line_original_strip[marker_pos + len(recommendation_marker):].strip()
+                                # Attempt to clean up
+                                possible_key = re.split(r'\s*[:\-(]\s*', extracted_key_raw, 1)[0].strip()
+                                found_key = next((vk for vk in valid_strategy_keys if possible_key.lower() == vk.lower()), None)
+
+                                if found_key:
+                                    self.ai_recommended_strategy_key = found_key
+                                    # Format header nicely for the label
+                                    recommendation_header_line = f"Recommended: {found_key}"
+                                    # Add the rest of the line (if any) to the justification body
+                                    justification_part = extracted_key_raw[len(possible_key):].strip(' :-')
+                                    if justification_part:
+                                        recommendation_lines.append(justification_part)
+                                else:
+                                    recommendation_header_line = f"Recommendation Found (Unknown Strategy: '{extracted_key_raw}')"
+                                    logger.warning(f"AI provided strategy key '{extracted_key_raw}' not matched.")
+                            except Exception as parse_err:
+                                recommendation_header_line = "Error Parsing Recommendation"
+                                logger.error(f"Error parsing recommendation line: {parse_err}")
+                            # Don't add the marker line itself to either list
+
+                        elif recommendation_found:
+                            # If we've found the marker, add subsequent lines to recommendation list
+                            if line_original_strip.startswith("===") or line_original_strip.startswith("##") or line_original_strip.startswith("---"):
+                                recommendation_found = False # End of this section
+                                other_analysis_lines.append(line) # Add section header to other lines
+                            else:
+                                recommendation_lines.append(line)
+                        else:
+                            # Lines before or after the recommendation section
+                            other_analysis_lines.append(line)
+
+                    # --- Update Recommendation Label ---
+                    full_recommendation_text = recommendation_header_line
+                    if recommendation_lines:
+                        justification = "\n".join(recommendation_lines).strip()
+                        justification = justification.replace("**", "") # Basic markdown removal
+                        full_recommendation_text += "\n\n" + justification
+
+                    if self.ai_recommended_strategy_key: # If valid key found, apply green style
+                         self.ai_recommendation_label.config(text=full_recommendation_text, bg=self.COLOR_SUCCESS, fg="white")
+                    elif recommendation_header_line: # If marker found but key invalid, show header with default style
+                         self.ai_recommendation_label.config(text=full_recommendation_text, bg=self.COLOR_FRAME_BG, fg=self.COLOR_TEXT)
+                    else: # No recommendation marker found at all
+                         self.ai_recommendation_label.config(text="No specific strategy recommendation found in AI response.", bg=self.COLOR_FRAME_BG, fg=self.COLOR_TEXT)
+
+
+                    # --- Populate Main ScrolledText with Other Lines & Tags ---
+                    for line in other_analysis_lines:
+                        tags_to_apply = ()
+                        line_lower = line.lower().strip()
+                        line_original_strip = line.strip()
+
+                        # Apply tags based on keywords or markdown headers
+                        if line_original_strip.startswith("===") or line_original_strip.startswith("##") or line_original_strip.startswith("---"):
+                             tags_to_apply = ('bold',)
+                        elif any(keyword in line_lower for keyword in critical_keywords):
+                             tags_to_apply = ('critical',)
                         elif any(keyword in line_lower for keyword in warning_keywords):
-                            tags_to_apply = ('warning',)
+                             tags_to_apply = ('warning',)
 
-                        # Insert the line with or without tags
                         self.ai_summary_text.insert(tk.END, line + "\n", tags_to_apply)
 
-                    self.ai_summary_text.configure(state='disabled')
-                    self.update_progress_threadsafe(70, 100, "Formatting AI Summary...")
+                    # --- Enable/Disable Export Button ---
+                    if export_button_exists:
+                         state_to_set = "normal" if self.ai_recommended_strategy_key else "disabled"
+                         self.export_recommended_btn.config(state=state_to_set)
+                         logger.debug(f"Set 'Export Recommended Strategy' button state to: {state_to_set}")
 
-                    # Tab Switching - use the CORRECT variable name for the current code
+                    self.ai_summary_text.configure(state='disabled')
+                    # --- End Parsing, Separation, Tagging, and Button Logic ---
+
+                    logger.info("AI Summary widgets updated.")
+
+                    # Tab Switching and Status Update
                     if hasattr(self, 'results_notebook') and self.results_notebook.winfo_exists() and \
                        hasattr(self, 'predictive_tab') and self.predictive_tab.winfo_exists():
                          try:
@@ -6267,25 +6530,28 @@ class BOMAnalyzerApp:
                          except tk.TclError as tab_err:
                               logger.error(f"Failed to switch to Predictive Analysis tab: {tab_err}")
 
-                    # Update status using the threadsafe method
                     if "Error:" not in ai_response:
                          self.update_status_threadsafe("AI summary generated.", "success")
-                         self.update_progress_threadsafe(90, 100, "Generating AI Summary with OpenAI...")
                     else:
                          self.update_status_threadsafe("Error generating AI summary.", "error")
-                         self.update_progress_threadsafe(0, 100, "Error generating AI summary.")
 
-
-                except tk.TclError as tk_err: # Catch Tkinter errors
-                     logger.error(f"Tkinter Error updating AI summary: {tk_err}", exc_info=True)
+                except tk.TclError as tk_err:
+                     logger.error(f"Tkinter Error updating AI summary GUI: {tk_err}", exc_info=True)
                      self.update_status_threadsafe(f"GUI Error updating AI Summary: {tk_err}", "error")
                 except Exception as e:
-                     logger.error(f"Unexpected error updating AI summary: {e}", exc_info=True)
-                     self.update_status_threadsafe(f"Error displaying AI Summary: {e}", "error")
+                     logger.error(f"Error during AI summary display/tagging: {e}", exc_info=True)
+                     try:
+                         self.ai_summary_text.configure(state='normal')
+                         self.ai_summary_text.delete(1.0, tk.END)
+                         self.ai_summary_text.insert(tk.END, "Error applying formatting. Raw response:\n\n" + ai_response)
+                         self.ai_summary_text.configure(state='disabled')
+                         self.update_status_threadsafe(f"Error displaying/formatting AI Summary: {e}", "error")
+                         if hasattr(self, 'export_recommended_btn') and self.export_recommended_btn.winfo_exists(): self.export_recommended_btn.config(state="disabled")
+                     except Exception as fallback_e:
+                          logger.error(f"Failed even to display raw AI response: {fallback_e}")
 
-
-            self.root.after(0, update_gui) # Schedule the update
-            logger.info("AI Summary Thread: GUI update scheduled.")
+            self.root.after(0, update_gui) 
+            logger.info("AI Summary Thread: GUI update scheduled.") 
 
         except Exception as e:
             # Catch errors during data extraction or prompt building
@@ -6498,6 +6764,13 @@ class BOMAnalyzerApp:
                  try: self.root.after_cancel(self._digikey_refresh_after_id)
                  except: pass
 
+            try:
+                plt.close('all')
+                logger.info("Closed Matplotlib figures.")
+            except Exception as e:
+                 logger.warning(f"Could not close Matplotlib figures during shutdown: {e}")
+            # --- End Optional ---
+
             logger.info("Destroying main window...")
             try:
                  self.root.destroy()
@@ -6507,7 +6780,7 @@ class BOMAnalyzerApp:
         else:
             logger.info("Quit cancelled by user.")
 
-
+        
 # --- Main Execution ---
 if __name__ == "__main__":
     root = None # Initialize root to None
