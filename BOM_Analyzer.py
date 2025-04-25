@@ -447,16 +447,13 @@ class BOMAnalyzerApp:
 
     def __init__(self, root):
         self.root = root
-
-        # --- >>> Assign Class Font Attributes to Instance Attributes <<< ---
         self.FONT_FAMILY = BOMAnalyzerApp.FONT_FAMILY
         self.FONT_SIZE_SMALL = BOMAnalyzerApp.FONT_SIZE_SMALL
         self.FONT_SIZE_NORMAL = BOMAnalyzerApp.FONT_SIZE_NORMAL
         self.FONT_SIZE_LARGE = BOMAnalyzerApp.FONT_SIZE_LARGE
         self.FONT_SIZE_XLARGE = BOMAnalyzerApp.FONT_SIZE_XLARGE
-        # --- >>> End Assignment <<< ---
 
-        # Initialize widget variables to None (good practice)
+        # Initialize widget variables
         self.load_button = self.file_label = self.run_button = self.predict_button = None
         self.ai_summary_button = self.validation_label = self.tree = self.analysis_table = None
         self.predictions_tree = self.ai_summary_text = self.status_label = self.progress = None
@@ -465,22 +462,22 @@ class BOMAnalyzerApp:
         self.fig_canvas = self.toolbar = self.export_parts_list_btn = None
         self.lowest_cost_btn = self.fastest_btn = self.optimized_strategy_btn = None
         self.lowest_cost_strict_btn = self.in_stock_btn = self.with_lt_btn = None
+        self.alt_popup = None  # Track the alternates popup
+        self.summary_popup = None  # Track the summary details popup
 
         self.root.title(f"{APP_NAME} - v{APP_VERSION}")
-        self.root.geometry("1500x900") # Keep size
-        self.root.minsize(1100, 700)
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        # Configure root window grid
-        self.root.grid_rowconfigure(0, weight=1) # Paned window row expands vertically
-        self.root.grid_rowconfigure(1, weight=0) # Status bar row fixed height
-        self.root.grid_columnconfigure(0, weight=1) # Single column for main content + status
+        self.root.geometry("1500x900")
+        self.root.minsize(1500, 900)  # Lock window size
+        self.root.maxsize(1500, 900)
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_rowconfigure(1, weight=0)
+        self.root.grid_columnconfigure(0, weight=1)
         self.root.configure(bg=self.COLOR_BACKGROUND)
 
         # --- Theme and Style Configuration ---
         self.style = ttk.Style()
         available_themes = self.style.theme_names()
         logger.debug(f"Available themes: {available_themes}")
-        # Try setting a theme (e.g., clam, alt) - clam is often good base
         preferred_themes = ['clam', 'alt', 'vista', 'xpnative', 'default']
         chosen_theme = None
         for theme in preferred_themes:
@@ -489,60 +486,62 @@ class BOMAnalyzerApp:
                 except tk.TclError: logger.warning(f"Could not use theme '{theme}'.")
         if not chosen_theme: logger.warning("Using system default theme.")
 
-        # --- Configure Base Styles with Updated Fonts ---
-        self.style.configure(".", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, bordercolor=self.COLOR_BORDER, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)) # Base font size
+        self.style.configure(".", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, bordercolor=self.COLOR_BORDER, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL))
         self.style.configure("TFrame", background=self.COLOR_BACKGROUND)
         self.style.configure("Card.TFrame", background=self.COLOR_FRAME_BG, relief='raised', borderwidth=1)
-        self.style.configure("InnerCard.TFrame", background=self.COLOR_FRAME_BG) # Match Card
+        self.style.configure("InnerCard.TFrame", background=self.COLOR_FRAME_BG)
         self.style.configure("TLabelframe", background=self.COLOR_BACKGROUND, bordercolor=self.COLOR_BORDER, relief="groove", borderwidth=1, padding=10)
         self.style.configure("TLabelframe.Label", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_LARGE, "bold"))
         self.style.configure("TLabel", background=self.COLOR_BACKGROUND, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), padding=(0, 2))
-        self.style.configure("Title.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_XLARGE, "bold"), foreground=self.COLOR_ACCENT, background=self.COLOR_FRAME_BG) # Match frame bg
-        self.style.configure("Hint.TLabel", foreground="#555555", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL), background=self.COLOR_FRAME_BG) # Match frame bg
-        self.style.configure("Status.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL)) # Status bar label
-        
-        # Button styling (using new colors)
+        self.style.configure("Title.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_XLARGE, "bold"), foreground=self.COLOR_ACCENT, background=self.COLOR_FRAME_BG)
+        self.style.configure("Hint.TLabel", foreground="#555555", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL), background=self.COLOR_FRAME_BG)
+        self.style.configure("Status.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_SMALL), padding=[0, 10])
         self.style.configure("TButton", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), padding=(10, 5), relief="raised", borderwidth=1)
         self.style.map("TButton",
-            background=[('active', '#c0c0c0'), ('!disabled', '#dcdcdc')], # Adjusted grays
+            background=[('active', '#c0c0c0'), ('!disabled', '#dcdcdc')],
             bordercolor=[('focus', self.COLOR_ACCENT)],
             relief=[('pressed', 'sunken')]
         )
         self.style.configure("Accent.TButton", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"), foreground="white", background=self.COLOR_ACCENT, borderwidth=1)
-        self.style.map("Accent.TButton", background=[('active', '#005a9e'), ('!disabled', self.COLOR_ACCENT)]) # Darker blue active
+        self.style.map("Accent.TButton", background=[('active', '#005a9e'), ('!disabled', self.COLOR_ACCENT)])
 
-        ## Treeview Styling
         treeview_rowheight = 28
         self.style.configure("Treeview", background=self.COLOR_FRAME_BG, fieldbackground=self.COLOR_FRAME_BG, foreground=self.COLOR_TEXT, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), rowheight=treeview_rowheight)
         self.style.map('Treeview', background=[('selected', self.COLOR_ACCENT)], foreground=[('selected', 'white')])
-        self.style.configure("Treeview.Heading", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"), background=self.COLOR_TREE_HEADING, relief="raised", borderwidth=1, padding=(4, 4)) # Use raised relief
-        self.style.map("Treeview.Heading", relief=[('active','raised'),('pressed','raised')]) # Keep raised
+        self.style.configure("Treeview.Heading", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"), background=self.COLOR_TREE_HEADING, relief="raised", borderwidth=1, padding=(4, 4))
+        self.style.map("Treeview.Heading", relief=[('active','raised'),('pressed','raised')])
+        self.style.configure("high_risk.Treeview", background='#fee2e2')
+        self.style.configure("moderate_risk.Treeview", background='#fef3c7')
+        self.style.configure("low_risk.Treeview", background='#dcfce7')
+        self.style.configure("na_risk.Treeview", background='#f3f4f6')
+        self.style.configure("warn_metric.Treeview", background='#fffbeb')
+        self.style.configure("error_metric.Treeview", background='#fff1f2')
 
-        # Risk tag colors (adjust if needed for new background)
-        self.style.configure("high_risk.Treeview", background='#fee2e2'); self.style.configure("moderate_risk.Treeview", background='#fef3c7'); self.style.configure("low_risk.Treeview", background='#dcfce7'); self.style.configure("na_risk.Treeview", background='#f3f4f6'); self.style.configure("warn_metric.Treeview", background='#fffbeb'); self.style.configure("error_metric.Treeview", background='#fff1f2')
-
-        # Notebook Styling
         self.style.configure("TNotebook", background=self.COLOR_BACKGROUND, borderwidth=0, tabmargins=[5, 5, 5, 0])
         self.style.configure("TNotebook.Tab", font=(self.FONT_FAMILY, self.FONT_SIZE_LARGE, "bold"), padding=[12, 6], background="#d1d5db", foreground="#4b5563")
         self.style.map("TNotebook.Tab", background=[("selected", self.COLOR_FRAME_BG), ('!selected', '#e5e7eb')], foreground=[("selected", self.COLOR_ACCENT), ('!selected', '#4b5563')], expand=[("selected", [1, 1, 1, 0])])
-
-        # Scrollbar and Progressbar
-        self.style.configure("TScrollbar", background=self.COLOR_BACKGROUND, troughcolor='#e5e7eb', bordercolor="#cccccc", arrowcolor='#333333') # Match bg
+        self.style.configure("TScrollbar", background=self.COLOR_BACKGROUND, troughcolor='#e5e7eb', bordercolor="#cccccc", arrowcolor='#333333')
         self.style.configure("TProgressbar", troughcolor='#e5e7eb', background=self.COLOR_ACCENT, thickness=15)
-
-        # Status Bar Styling (use new colors)
         self.style.configure("StatusBar.TFrame", background=self.COLOR_STATUS_BAR_BG, borderwidth=1, relief='flat')
-        self.style.configure("Status.TLabel", background=self.COLOR_STATUS_BAR_BG, foreground=self.COLOR_STATUS_BAR_TEXT) # Use new text color
+        self.style.configure("Status.TLabel", background=self.COLOR_STATUS_BAR_BG, foreground=self.COLOR_STATUS_BAR_TEXT)
 
         logger.info("Initializing GUI...")
 
-        # --- Tooltip Setup ---
-        self._tooltips = {}
+        # Configure tags for emphasis in the AI summary ScrolledText widget
+        # Note: These are applied directly to the Text widget, not via ttk styles
+        # Ensure ai_summary_text widget exists before configuring tags if called later,
+        # but it's generally safe to configure tags after widget creation.
+        # We will apply them *during* text insertion later.
+        # No direct code needed here IF we apply during insertion, but good to be aware.
+        # Alternatively, configure them after the widget is created:
+        # self.ai_summary_text.tag_configure("critical", foreground="red", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+        # self.ai_summary_text.tag_configure("warning", foreground=self.COLOR_WARN, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+        # self.ai_summary_text.tag_configure("highlight", background="yellow")
+        self.ai_summary_text_widget = None
+        
         self.tooltip_texts = {}
-
-        # --- Define Headers ---
         self.hist_header = ['Component', 'Manufacturer', 'Part_Number', 'Distributor', 'Lead_Time_Days', 'Cost', 'Inventory', 'Stock_Probability', 'Fetch_Timestamp']
-        self.pred_header = ['Component', 'Date', 'Prophet_Lead', 'Prophet_Cost', 'RAG_Lead', 'RAG_Cost', 'AI_Lead', 'AI_Cost', 'Stock_Probability', 'Real_Lead', 'Real_Cost', 'Real_Stock', 'Prophet_Ld_Acc', 'Prophet_Cost_Acc', 'RAG_Ld_Acc', 'RAG_Cost_Acc', 'AI_Ld_Acc', 'AI_Cost_Acc']
+        self.pred_header = ['Component', 'Date', 'Prophet_Lead', 'Prophet_Cost', 'RAG_Lead', 'RAG_Cost', 'AI_Lead', 'AI_Cost', 'Stock_Probability', 'Real_Lead', 'Real_Cost', 'Real_Stock', 'Prophet_Ld_Acc', 'Prophet_Cost_Acc', 'RAG_Ld_Acc', 'RAG_Cost_Acc']
 
         # --- Main Layout ---
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -550,14 +549,15 @@ class BOMAnalyzerApp:
         logger.debug("Main paned window gridded onto root window.")
 
         # --- Universal Status Bar ---
-        STATUS_BAR_HEIGHT = 35
+        STATUS_BAR_HEIGHT = 50
         self.universal_status_bar = ttk.Frame(self.root, style="StatusBar.TFrame", height=STATUS_BAR_HEIGHT)
         # ... (Label setup and packing inside status bar frame) ...
-        self.universal_tooltip_label = ttk.Label(self.universal_status_bar, text=" ", anchor='w', wraplength=1400, style="Status.TLabel")
+        self.universal_tooltip_label = ttk.Label(self.universal_status_bar, text=" ", anchor='nw', wraplength=0, style="Status.TLabel", justify='left', font=("Segoe UI",12))
+        # --- End Change ---
         self.universal_tooltip_label.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=(1, 1))
         # Grid status bar in root window, row 1
         self.universal_status_bar.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 0)) # columnspan=1 or remove
-        self.universal_status_bar.grid_propagate(False)
+        self.universal_status_bar.grid_propagate(False) 
 
         # --- Left Pane: Configuration ---
         self.config_frame_outer = ttk.Frame(self.main_paned_window, padding=0, width=450, style="Card.TFrame")
@@ -665,6 +665,7 @@ class BOMAnalyzerApp:
         status_progress_frame = ttk.Frame(self.results_frame, padding=(0, 5))
         status_progress_frame.grid(row=0, column=0, sticky="ew")
         status_progress_frame.grid_columnconfigure(0, weight=3); status_progress_frame.grid_columnconfigure(1, weight=1); status_progress_frame.grid_columnconfigure(2, weight=0); status_progress_frame.grid_columnconfigure(3, weight=2)
+   
         self.status_label = ttk.Label(status_progress_frame, text="Ready", anchor="w"); self.status_label.grid(row=0, column=0, padx=(0, 5), sticky="ew")
         self.progress = ttk.Progressbar(status_progress_frame, orient="horizontal", length=150, mode="determinate"); self.progress.grid(row=0, column=1, padx=5, sticky="ew")
         self.progress_label = ttk.Label(status_progress_frame, text="0%", width=5); self.progress_label.grid(row=0, column=2, padx=(0, 5), sticky="w")
@@ -686,11 +687,41 @@ class BOMAnalyzerApp:
         # -- Top Pane: Parts Treeview --
         tree_frame_outer = ttk.Frame(self.analysis_pane, style="Card.TFrame")
         tree_frame_outer.grid_rowconfigure(0, weight=1); tree_frame_outer.grid_columnconfigure(0, weight=1)
-        columns = [ "PartNumber", "Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "FastestLT", "FastestCost", "FastestLTSrc", "Alternates", "Notes" ]
-        headings = [ "BOM P/N", "Manufacturer", "Mfg P/N", "Need", "Lifecycle", "Srcs", "Stock", "COO", "Risk", "Tariff", "Unit Cost", "Total Cost", "Buy Qty", "LT", "Src", "Fast LT", "Cost", "Src", "Alts?", "Notes/Flags" ]
-        col_widths = { "PartNumber": 140, "Manufacturer": 110, "MfgPN": 140, "QtyNeed": 50, "Status": 65, "Sources": 40, "StockAvail": 70, "COO": 45, "RiskScore": 45, "TariffPct": 50, "BestCostPer": 70, "BestTotalCost": 75, "ActualBuyQty": 55, "BestCostLT": 35, "BestCostSrc": 40, "FastestLT": 35, "FastestCost": 70, "FastestLTSrc": 40, "Alternates": 40, "Notes": 150 }
-        col_align = { "PartNumber": 'w', "Manufacturer": 'w', "MfgPN": 'w', "QtyNeed": 'center', "Status": 'center', "Sources": 'center', "StockAvail": 'e', "COO": 'center', "RiskScore": 'center', "TariffPct": 'e', "BestCostPer": 'e', "BestTotalCost": 'e', "ActualBuyQty": 'center', "BestCostLT": 'center', "BestCostSrc": 'center', "FastestLT": 'center', "FastestCost": 'e', "FastestLTSrc": 'center', "Alternates": 'center', "Notes": 'w' }
-        col_tooltips = { "PartNumber": "Part number from the input BOM.", "Manufacturer": "Consolidated Manufacturer Name.", "MfgPN": "Consolidated Manufacturer Part Number.", "QtyNeed": "Total quantity needed (BOM Qty/Unit * Total Units).", "Status": "Lifecycle status (Active, EOL, Discontinued, NRND).", "Sources": "Number of suppliers found with data.", "StockAvail": "Total stock across all valid sources.", "COO": "Consolidated Country of Origin.", "RiskScore": "Overall Risk Score (0-10). Higher=More Risk.\nRed(>6.5), Yellow(3.6-6.5), Green(<=3.5).\nFactors: Sourcing, Stock, LeadTime, Lifecycle, Geo.", "TariffPct": "Estimated Tariff Rate (%) based on COO/HTS.", "BestCostPer": "Lowest Unit Cost ($) found for the chosen 'Actual Buy Qty'.", "BestTotalCost": "Lowest Total Cost ($) for the 'Actual Buy Qty' (may include price break optimization).", "ActualBuyQty": "Quantity chosen for the 'Best Total Cost' calculation (may be > QtyNeed due to MOQ or price breaks).", "BestCostLT": "Lead Time (days) for the Best Total Cost option.", "BestCostSrc": "Supplier for the Best Total Cost option.", "FastestLT": "Shortest Lead Time (days) found.", "FastestCost": "Total Cost ($) for the Fastest Lead Time option.", "FastestLTSrc": "Supplier for the Fastest Lead Time option.", "Alternates": "Indicates if potential alternates were found (via DigiKey). Double-click row to view.", "Notes": "Additional notes: Stock Gap, EOL/Discontinued flags, Buy-up reasons." }
+        columns = [
+    "PartNumber", "Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct",
+    "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "Alternates", "Notes"
+]
+        headings = [
+    "BOM P/N", "Manufacturer", "Mfg P/N", "Need", "Lifecycle", "Aval Sources", "Stock", "COO", "Risk", "Tariff",
+    "Unit Cost", "Total Cost", "Buy Qty", "LT", "Source", "Alts?", "Notes/Flags"
+]
+        col_widths = {
+    "PartNumber": 140, "Manufacturer": 110, "MfgPN": 90, "QtyNeed": 50, "Status": 65, "Sources": 80, "StockAvail": 70, "COO": 45, "RiskScore": 45, "TariffPct": 50,
+    "BestCostPer": 70, "BestTotalCost": 75, "ActualBuyQty": 55, "BestCostLT": 35, "BestCostSrc": 50, "Alternates": 40, "Notes": 150
+}
+        col_align = {
+    "PartNumber": 'w', "Manufacturer": 'w', "MfgPN": 'w', "QtyNeed": 'center', "Status": 'center', "Sources": 'center', "StockAvail": 'e', "COO": 'center', "RiskScore": 'center', "TariffPct": 'e',
+    "BestCostPer": 'e', "BestTotalCost": 'e', "ActualBuyQty": 'center', "BestCostLT": 'center', "BestCostSrc": 'center', "Alternates": 'center', "Notes": 'w'
+}
+        col_tooltips = {
+    "PartNumber": "Part number from the input BOM.", 
+    "Manufacturer": "Consolidated Manufacturer Name.", 
+    "MfgPN": "Consolidated Manufacturer Part Number.", 
+    "QtyNeed": "Total quantity needed (BOM Qty/Unit * Total Units).", 
+    "Status": "Lifecycle status (Active, EOL, Discontinued, NRND).", 
+    "Aval Sources": "Number of suppliers found with data.", 
+    "StockAvail": "Total stock across all valid sources.", 
+    "COO": "Country of Origin.", 
+    "RiskScore": "Overall Risk Score (0-10). Higher=More Risk.\nRed(>6.5), Yellow(3.6-6.5), Green(<=3.5).\nFactors: Sourcing, Stock, LeadTime, Lifecycle, Geo.", 
+    "TariffPct": "Estimated Tariff Rate (%) based on COO/HTS.", 
+    "BestCostPer": "Lowest Unit Cost ($) found for the chosen 'Actual Buy Qty'.", 
+    "BestTotalCost": "Lowest Total Cost ($) for the 'Actual Buy Qty' (may include price break optimization).", 
+    "ActualBuyQty": "Quantity chosen for the 'Best Total Cost' calculation (may be > QtyNeed due to MOQ or price breaks).", 
+    "BestCostLT": "Lead Time (days) for the Best Total Cost option.", 
+    "BestCostSrc": "Supplier for the Best Total Cost option.", 
+    "Alternates": "Indicates if potential alternates were found. Double-click row to view.", 
+    "Notes": "Additional notes: Stock Gap, EOL/Discontinued flags, Buy-up reasons."
+}
 
         self.tree_hsb = ttk.Scrollbar(tree_frame_outer, orient="horizontal") 
         self.tree_vsb = ttk.Scrollbar(tree_frame_outer, orient="vertical")   
@@ -758,6 +789,8 @@ class BOMAnalyzerApp:
         ai_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10)); ai_frame.grid_rowconfigure(0, weight=1); ai_frame.grid_columnconfigure(0, weight=1)
         self.ai_summary_text = scrolledtext.ScrolledText(ai_frame, wrap=tk.WORD, height=25, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL), relief="solid", borderwidth=1, state='disabled', background="#fdfdfd", foreground="#111827")
         self.ai_summary_text.grid(row=0, column=0, sticky="nsew")
+        self.ai_summary_text.tag_configure("critical", foreground=self.COLOR_ERROR, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+        self.ai_summary_text.tag_configure("warning", foreground=self.COLOR_WARN, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
         self.ai_summary_text.insert(tk.END, "Run analysis and then click 'AI Summary' (requires OpenAI key).")
         ttk.Separator(self.predictive_tab, orient=tk.HORIZONTAL).grid(row=1, column=0, sticky="ew", pady=(10, 10), padx=5)
         pred_update_frame = ttk.LabelFrame(self.predictive_tab, text="Predictions vs Actuals", padding=5)
@@ -839,6 +872,7 @@ class BOMAnalyzerApp:
         self.predictions_df = None; self.digikey_token_data = None; self.nexar_token_data = None; self.mouser_requests_today = 0
         self.mouser_last_reset_date = None; self.mouser_daily_limit = 1000; self.thread_pool = ThreadPoolExecutor(max_workers=MAX_API_WORKERS, thread_name_prefix="BOMWorker")
         self.running_analysis = False; self._hts_cache = {}; self.prediction_tree_row_map = {}; self.tree_item_data_map = {}; self._active_tooltip_widget = None
+        self.plot_annotation = None # Annotation object for plot hovering
 
         # --- Initial Setup Calls ---
         self.load_mouser_request_counter()
@@ -853,6 +887,8 @@ class BOMAnalyzerApp:
         initial_analysis_sash_pos = 400
         self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
         self.root.after(200, self.show_startup_guide_popup)
+        self.load_mouser_request_counter()
+        self.update_rate_limit_display()
         logger.info("GUI initialization complete.")
 
         
@@ -912,8 +948,8 @@ class BOMAnalyzerApp:
     4.  **Review Results:**
         *   **BOM Analysis Tab:** View the main parts list and summary metrics. Double-click a row for alternates. Export strategies or the full view.
         *   **AI & Predictions Tab:**
-            *   Click 'AI Summary' (requires OpenAI key) for insights.
             *   Click 'Run Predictions' to forecast future cost/lead time based on history.
+            *   Click 'AI Summary' (requires OpenAI key) for insights. (Predictions must be run first)
             *   Enter actual results ('Real Lead', 'Real Cost', 'Real Stock') and click 'Save Actuals' to improve future accuracy calculations.
         *   **Visualizations Tab:** Select different plots to visualize analysis results.
 
@@ -976,6 +1012,160 @@ class BOMAnalyzerApp:
         else: # No data yet
              self.plot_combo.set("-- No Data for Plots --")
 
+    def _on_plot_hover(self, event):
+        """Handles mouse hover events on the plot canvas for annotations."""
+        # Ensure annotation object and canvas exist
+        if not self.plot_annotation or not self.fig_canvas:
+            return
+        
+        # Ensure stored axes and plot-specific data are available
+        if not hasattr(self, '_current_plot_ax') or not hasattr(self, '_current_plot_specific_df') or self._current_plot_specific_df.empty:
+            if self.plot_annotation.get_visible():
+                self.plot_annotation.set_visible(False)
+                if self.fig_canvas: self.fig_canvas.draw_idle()
+            return
+        
+        ax = self._current_plot_ax
+        plot_df = self._current_plot_specific_df
+        visible = self.plot_annotation.get_visible()
+    
+        # Check if mouse is inside the axes bounds
+        if event.inaxes == ax:
+            logger.debug(f"Hover: In axes at ({event.xdata:.2f}, {event.ydata:.2f}).")
+            
+            # --- Improved point detection ---
+            # Get mouse position
+            mouse_x, mouse_y = event.xdata, event.ydata
+            
+            # Define a threshold for point detection (in data coordinates)
+            detection_threshold = 5.0  # Adjust based on your plot density
+            
+            # Initialize variables
+            closest_point_idx = None
+            min_distance = float('inf')
+            target_collection = None
+            
+            # Check all collections (scatter plots)
+            for i, collection in enumerate(ax.collections):
+                # Skip collections without proper data
+                if not hasattr(collection, 'get_offsets') or len(collection.get_offsets()) == 0:
+                    continue
+                    
+                # Get all point coordinates
+                points = collection.get_offsets()
+                logger.debug(f"Hover: Collection {i} contains {len(points)} points")
+                
+                # Check standard contains method first
+                cont, ind_dict = collection.contains(event)
+                if cont and 'ind' in ind_dict and len(ind_dict['ind']) > 0:
+                    point_idx = ind_dict['ind'][0]
+                    logger.debug(f"Hover: Standard detection found point at index {point_idx}")
+                    closest_point_idx = point_idx
+                    target_collection = collection
+                    break
+                
+                # If standard detection fails, use manual distance calculation
+                # Especially useful for points with extreme values
+                for j, point in enumerate(points):
+                    # Calculate distance between mouse and point
+                    dx = mouse_x - point[0]
+                    dy = mouse_y - point[1]
+                    distance = np.sqrt(dx*dx + dy*dy)
+                    
+                    # Check if this point is closer than previous ones
+                    if distance < min_distance and distance < detection_threshold:
+                        min_distance = distance
+                        closest_point_idx = j
+                        target_collection = collection
+            
+            # Process the found point
+            if closest_point_idx is not None and closest_point_idx < len(plot_df):
+                logger.debug(f"Hover: Found closest point at index {closest_point_idx}, distance: {min_distance:.2f}")
+                
+                # Initialize variables
+                part_num = 'N/A'
+                mfg_pn = 'N/A'
+                cost_val = np.nan
+                lt_val = np.nan
+                
+                try:
+                    # Retrieve data for the point
+                    if 'PartNumber' in plot_df.columns:
+                        part_num = plot_df['PartNumber'].values[closest_point_idx]
+                    if 'MfgPN' in plot_df.columns:
+                        mfg_pn = plot_df['MfgPN'].values[closest_point_idx]
+                    if 'BestTotalCost' in plot_df.columns:
+                        cost_val = plot_df['BestTotalCost'].values[closest_point_idx]
+                    if 'BestCostLT' in plot_df.columns:
+                        lt_val = plot_df['BestCostLT'].values[closest_point_idx]
+                    
+                    logger.debug(f"Hover: Retrieved data for index {closest_point_idx}: PN={part_num}, Cost={cost_val}, LT={lt_val}")
+                    
+                    # Format annotation text
+                    cost_val_fmt = float(cost_val) if pd.notna(cost_val) else np.nan
+                    lt_val_fmt = float(lt_val) if pd.notna(lt_val) else np.nan
+                    text = f"PN: {part_num}\nMfgPN: {mfg_pn}\nCost: ${cost_val_fmt:.2f}\nLT: {lt_val_fmt:.0f}d"
+                    self.plot_annotation.set_text(text)
+                    
+                    # Get point coordinates
+                    point_coords = target_collection.get_offsets()[closest_point_idx]
+                    
+                    # Get axes dimensions in data coordinates
+                    x_min, x_max = ax.get_xlim()
+                    y_min, y_max = ax.get_ylim()
+                    x_range = x_max - x_min
+                    y_range = y_max - y_min
+                    
+                    # Set annotation position
+                    self.plot_annotation.xy = point_coords
+                    
+                    # Smart positioning based on point location in axes
+                    # This ensures annotations for edge points remain visible
+                    rel_x = (point_coords[0] - x_min) / x_range
+                    rel_y = (point_coords[1] - y_min) / y_range
+                    
+                    # Position annotation to ensure it stays visible
+                    if rel_y > 0.7:  # High point (top 30% of plot)
+                        self.plot_annotation.set_position((10, -40))  # Below point
+                    elif rel_y < 0.3:  # Low point (bottom 30% of plot)
+                        self.plot_annotation.set_position((10, 20))  # Above point
+                    elif rel_x > 0.7:  # Right side point
+                        self.plot_annotation.set_position((-80, 10))  # Left of point
+                    else:  # Default position
+                        self.plot_annotation.set_position((10, 10))  # Right of point
+                    
+                    # Ensure annotation box style makes text readable
+                    self.plot_annotation.set_bbox(dict(
+                        boxstyle="round,pad=0.5",
+                        fc="white",
+                        ec="gray",
+                        alpha=0.9
+                    ))
+                    
+                    # Make annotation visible
+                    if not visible:
+                        logger.debug("Hover: Setting annotation visible.")
+                    self.plot_annotation.set_visible(True)
+                    self.fig_canvas.draw_idle()
+                    
+                except Exception as e:
+                    logger.error(f"Hover: Error processing point data: {str(e)}", exc_info=True)
+                    if visible:
+                        self.plot_annotation.set_visible(False)
+                        self.fig_canvas.draw_idle()
+            else:
+                # No point found near mouse position
+                if visible:
+                    logger.debug("Hover: Hiding annotation (no point found).")
+                    self.plot_annotation.set_visible(False)
+                    self.fig_canvas.draw_idle()
+        else:
+            # Mouse not in axes
+            if visible:
+                logger.debug("Hover: Hiding annotation (mouse left axes).")
+                self.plot_annotation.set_visible(False)
+                self.fig_canvas.draw_idle()
+                
     def update_visualization(self, event=None):
         """Clears old plot and draws the selected new one."""
         selected_plot = self.plot_type_var.get()
@@ -997,7 +1187,7 @@ class BOMAnalyzerApp:
         # Create new Figure and Canvas
         # Use sns styles for nicer look if desired
         # sns.set_theme(style="whitegrid") # Example seaborn style
-        fig = Figure(figsize=(8, 5), dpi=100, facecolor=self.COLOR_BACKGROUND) # Use background color
+        fig = Figure(figsize=(10, 6), dpi=100, facecolor=self.COLOR_BACKGROUND) # Use background color
         ax = fig.add_subplot(111)
         ax.set_facecolor(self.COLOR_BACKGROUND) # Match axes background
 
@@ -1010,12 +1200,16 @@ class BOMAnalyzerApp:
             elif selected_plot == "Lead Time Distribution (Optimized)" and plot_data is not None:
                  self.plot_lead_time_distribution(ax, plot_data)
             elif selected_plot == "Cost vs Lead Time (Optimized)" and plot_data is not None:
-                 self.plot_cost_vs_lead_time(ax, plot_data)
+                 self._current_plot_specific_df = self.plot_cost_vs_lead_time(ax, plot_data)
+                 if self._current_plot_specific_df is None: # Handle case where plot function failed early
+                     self._current_plot_specific_df = pd.DataFrame()
             elif selected_plot == "Prediction Accuracy Comparison" and self.predictions_df is not None:
                  self.plot_prediction_accuracy(ax) # Uses self.predictions_df directly
+                 self._current_plot_specific_df = self.predictions_df
             else:
                  ax.text(0.5, 0.5, 'Selected plot cannot be generated\n(Check data availability)', \
                          horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+                 self._current_plot_specific_df = pd.DataFrame()
 
             fig.tight_layout(pad=2.0) # Adjust padding
 
@@ -1031,14 +1225,26 @@ class BOMAnalyzerApp:
             toolbar_widget = self.toolbar # Keep reference if needed
             toolbar_widget.pack(side=tk.BOTTOM, fill=tk.X)
 
+            self.plot_annotation = ax.annotate("", xy=(0,0), xytext=(10,10), # Offset from point
+                                                textcoords="offset points",
+                                                bbox=dict(boxstyle="round,pad=0.5", fc="yellow", alpha=0.75),
+                                                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+                                                visible=False, # Start hidden
+                                                fontsize=8, # Smaller font for annotation
+                                                backgroundcolor='#FFFFE0') # Light yellow background for annotation
+
+            # Store the plot_data used for potential lookup in the hover event
+            # Use .copy() to avoid modifying the original data if further processing happens
+            self._current_plot_ax = ax # Store the axes object
+
+            # Connect the motion notify event
+            self.fig_canvas.mpl_connect('motion_notify_event', self._on_plot_hover)
+             # --- End Change ---
+
         except Exception as e:
              logger.error(f"Failed to generate plot '{selected_plot}': {e}", exc_info=True)
              ax.text(0.5, 0.5, f'Error generating plot:\n{e}', color='red', \
                      horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-             # Still draw the canvas to show the error
-             self.fig_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
-             self.fig_canvas.draw()
-             self.fig_canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 
     def plot_lead_time_distribution(self, ax, data):
@@ -1065,28 +1271,81 @@ class BOMAnalyzerApp:
         """Plots a scatter plot of Optimized Cost vs Lead Time."""
         cost_col = 'BestTotalCost'
         lt_col = 'BestCostLT'
-
+        
+        # Check for required data
         if cost_col not in data.columns or lt_col not in data.columns or \
            data[cost_col].isnull().all() or data[lt_col].isnull().all():
             ax.text(0.5, 0.5, 'Insufficient Cost/Lead Time data.', ha='center', va='center', transform=ax.transAxes)
-            return
-
-        # Drop rows where either cost or lead time is missing for the plot
-        plot_df = data[[cost_col, lt_col]].dropna()
-
-        if plot_df.empty:
+            return pd.DataFrame()  # Return empty if no valid data to plot
+    
+        # Define required columns for plotting and hover
+        required_cols_for_hover = ['PartNumber', 'MfgPN', cost_col, lt_col]
+        cols_to_select = [col for col in required_cols_for_hover if col in data.columns]
+        
+        if cost_col not in cols_to_select or lt_col not in cols_to_select:
+            logger.error("Cost/LT columns missing for hover data prep.")
+            return pd.DataFrame()
+    
+        # Filter to valid rows only
+        valid_indices_df = data[[cost_col, lt_col]].dropna()
+        if valid_indices_df.empty:
             ax.text(0.5, 0.5, 'No rows with valid Cost & Lead Time pairs.', ha='center', va='center', transform=ax.transAxes)
-            return
-
-        sns.scatterplot(data=plot_df, x=lt_col, y=cost_col, ax=ax, alpha=0.6, color=self.COLOR_ACCENT)
-
+            return pd.DataFrame()
+    
+        valid_idx = valid_indices_df.index
+        plot_df = data.loc[valid_idx, cols_to_select].reset_index(drop=True)
+        
+        # Log data statistics for diagnostic purposes
+        cost_values = plot_df[cost_col].dropna()
+        if not cost_values.empty:
+            max_cost = cost_values.max()
+            min_cost = cost_values.min()
+            median_cost = cost_values.median()
+            logger.debug(f"Cost stats: min={min_cost}, max={max_cost}, median={median_cost}")
+            
+        lt_values = plot_df[lt_col].dropna()
+        if not lt_values.empty:
+            max_lt = lt_values.max()
+            min_lt = lt_values.min()
+            median_lt = lt_values.median()
+            logger.debug(f"Lead Time stats: min={min_lt}, max={max_lt}, median={median_lt}")
+        
+        # Determine if log scale is appropriate based on data range
+        use_log_scale = False
+        if not cost_values.empty:
+            cost_range_ratio = max_cost / min_cost if min_cost > 0 else 10
+            if cost_range_ratio > 10:
+                use_log_scale = True
+                logger.debug(f"Using log scale due to large cost range ratio: {cost_range_ratio:.1f}")
+        
+        # Create scatter plot with increased point size and picker radius
+        sns.scatterplot(
+            data=plot_df, 
+            x=lt_col, 
+            y=cost_col, 
+            ax=ax, 
+            alpha=0.7,  # Slightly increase alpha for better visibility
+            color=self.COLOR_ACCENT, 
+            s=120,      # Larger point size
+            picker=8    # Larger picker radius
+        )
+        
+        # Apply log scale if needed
+        if use_log_scale:
+            ax.set_yscale('log')
+        
+        # Add more space around the plot
+        ax.margins(x=0.15, y=0.15)  # 15% margin on all sides
+        
+        # Set titles and labels
         ax.set_title('Part Cost vs Lead Time (Optimized Strategy)', fontsize=10)
         ax.set_xlabel('Lead Time (Days)', fontsize=9)
         ax.set_ylabel('Total Cost per Part ($)', fontsize=9)
         ax.tick_params(axis='both', which='major', labelsize=8)
-        # Consider log scale for cost if values vary extremely
-        # ax.set_yscale('log')
         ax.grid(True, linestyle='--', alpha=0.7)
+        
+        # Return the filtered DataFrame for hover functionality
+        return plot_df
   
 
     def clear_visualization(self):
@@ -1318,14 +1577,19 @@ class BOMAnalyzerApp:
             self._hide_universal_tooltip()
             return
         try:
-            self.universal_tooltip_label.config(text=text)
+            # --- Start Change: Replace newlines ---
+            # Explicitly replace any newline characters in the incoming text with spaces
+            single_line_text = text.replace('\n', ' ')
+            # --- End Change ---
+            # Keep wraplength=0 in the label's creation in __init__
+            self.universal_tooltip_label.config(text=single_line_text) # Use the modified single-line text
         except tk.TclError: pass
 
     def _hide_universal_tooltip(self):
         """Internal method to clear the universal tooltip label."""
         try:
             if hasattr(self, 'universal_tooltip_label') and self.universal_tooltip_label.winfo_exists():
-                 self.universal_tooltip_label.config(text="") # Just clear the text
+                 self.universal_tooltip_label.config(text=" ")
         except tk.TclError: pass
 
     def _on_widget_leave(self, event):
@@ -2391,10 +2655,16 @@ class BOMAnalyzerApp:
     def show_alternates_popup(self, event):
         """Displays a pop-up window with alternate parts for the selected row."""
         selected_items = self.tree.selection()
+        
+        # Ensure only one popup exists
+        if self.alt_popup and self.alt_popup.winfo_exists():
+            self.alt_popup.lift()
+            self.alt_popup.focus_set()
+            return
         if not selected_items: return
-
+    
         selected_item_id = selected_items[0]
-
+    
         # Get data stored for this item_id
         item_data = self.tree_item_data_map.get(selected_item_id)
         if not item_data:
@@ -2414,43 +2684,45 @@ class BOMAnalyzerApp:
         else:
             bom_pn = item_data.get("PartNumber", "N/A")
             mfg_pn = item_data.get("MfgPN", "N/A")
-            # Find the corresponding part_summary in analysis_results using bom_pn
-            alternates_list = []
-            if self.analysis_results and isinstance(self.analysis_results.get("part_summaries"), list):
-                part_summary_found = next((ps for ps in self.analysis_results["part_summaries"] if ps.get("bom_pn") == bom_pn), None)
-                if part_summary_found and 'alternates' in part_summary_found:
-                    # Ensure it's a list of dicts
-                    raw_alternates = part_summary_found['alternates']
-                    if isinstance(raw_alternates, list):
-                        alternates_list = [alt for alt in raw_alternates if isinstance(alt, dict)]
-                    else:
-                         logger.warning(f"Alternates data for {bom_pn} is not a list: {type(raw_alternates)}")
-
+            # Fetch alternates directly from item_data
+            alternates_list = item_data.get("AlternatesList", [])
+            logger.debug(f"Item data for {bom_pn}: {item_data}")
+            logger.debug(f"AlternatesList for {bom_pn}: {alternates_list}")
+    
         logger.info(f"Showing alternates pop-up for BOM P/N: {bom_pn} (Mfg P/N: {mfg_pn})")
-
+    
         # --- Create Pop-up --- (Standard Tkinter Toplevel)
         popup = tk.Toplevel(self.root)
         popup.title(f"Alternates for {mfg_pn}")
-        popup.geometry("700x450") # Wider popup
-        popup.transient(self.root)
-        popup.grab_set()
-
+        popup.geometry("1024x768")
+        popup.transient(self.root)  # Tie to parent window
+        popup.grab_set()  # Modal behavior
+        popup.lift()  # Bring to front
+        popup.attributes('-topmost', True)  # Keep on top
+        self.alt_popup = popup
+        popup.protocol("WM_DELETE_WINDOW", lambda: self.close_alternates_popup(popup))
+    
         popup_frame = ttk.Frame(popup, padding=10)
         popup_frame.pack(fill=tk.BOTH, expand=True)
-        popup_frame.rowconfigure(1, weight=1) # Allow text area to expand
+        popup_frame.rowconfigure(2, weight=1) # Adjust row for text area to expand
         popup_frame.columnconfigure(0, weight=1)
-
-        ttk.Label(popup_frame, text=f"Potential Substitutes/Alternates (from DigiKey):", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky='w', pady=(0, 2))
-        ttk.Label(popup_frame, text=f"Mfg P/N: {mfg_pn}", style="Hint.TLabel").grid(row=1, column=0, sticky='w', pady=(0, 10))
-
-        alt_text_area = scrolledtext.ScrolledText(popup_frame, wrap=tk.WORD, height=18, width=90, font=("Courier New", 9), relief="solid", borderwidth=1)
-        alt_text_area.grid(row=2, column=0, sticky="nsew", pady=(5, 5))
+    
+        # Add a label at the top to display alternates details if they exist
+        if alternates_list:
+            alternates_details = "Alternate Parts Details:\n"
+            row_offset = 0
+    
+        ttk.Label(popup_frame, text=f"Potential Substitutes/Alternates:", font=("Segoe UI", 16, "bold")).grid(row=row_offset, column=0, sticky='w', pady=(0, 2))
+        ttk.Label(popup_frame, text=f"Mfg P/N: {mfg_pn}", style="Hint.TLabel").grid(row=row_offset + 1, column=0, sticky='w', pady=(0, 10))
+    
+        alt_text_area = scrolledtext.ScrolledText(popup_frame, wrap=tk.WORD, height=18, width=90, font=("Courier New", 14), relief="solid", borderwidth=1)
+        alt_text_area.grid(row=row_offset + 2, column=0, sticky="nsew", pady=(5, 5))
         alt_text_area.configure(state='disabled')
-
+    
         # Populate Content
         content = ""
         if not alternates_list:
-            content = "No alternate parts found via DigiKey API for this Manufacturer Part Number."
+            content = "No alternate parts found for this Manufacturer Part Number."
         else:
             content = "Type                 | Manufacturer         | Alt Mfg Part Num        | Description\n"
             content += "---------------------+----------------------+-------------------------+--------------------------\n"
@@ -2463,17 +2735,23 @@ class BOMAnalyzerApp:
                  # Description is nested inside 'ProductDescription' dict
                  desc = alt.get('ProductDescription', {}).get('ProductDescription', 'N/A')[:40] # Limit description length
                  content += f"{sub_type} | {mfg_name} | {mfg_pn_alt} | {desc}\n"
-
+    
         alt_text_area.configure(state='normal')
         alt_text_area.insert(tk.END, content)
         alt_text_area.configure(state='disabled')
-
+    
         close_button = ttk.Button(popup_frame, text="Close", command=popup.destroy)
-        close_button.grid(row=3, column=0, pady=(10, 0))
-
+        close_button.grid(row=row_offset + 3, column=0, pady=(10, 0))
+    
         # Center the popup
         popup.update_idletasks()
         self.center_window(popup)
+
+    def close_alternates_popup(self, popup):
+        if popup and popup.winfo_exists():
+            popup.destroy()
+        self.alt_popup = None
+        
 
     def center_window(self, window):
         """ Centers a Tkinter window (Toplevel or Root) on the screen. """
@@ -3221,7 +3499,7 @@ class BOMAnalyzerApp:
             # --- End Pricing ---
 
             status_data = best_match_dict.get("ProductStatus", {})
-            status_str = status_data.get("Value", "").lower() if isinstance(status_data, dict) else ""
+            status_str = status_data.get("Status", "").lower() if isinstance(status_data, dict) else ""
 
             coo = "N/A"; hts = "N/A"
             classifications_data = best_match_dict.get("Classifications")
@@ -3966,30 +4244,54 @@ class BOMAnalyzerApp:
             logger.error(f"Unexpected error during strategy export: {e}", exc_info=True)
             messagebox.showerror("Export Error", f"An unexpected error occurred during export:\n\n{e}")
 
-        
+    
     # --- Main Analysis Function (Per Part) ---
     def analyze_single_part(self, bom_part_number, bom_manufacturer, bom_qty_per_unit, config):
-        """
-        Analyzes a single BOM line item: fetches data, calculates costs, consolidates info,
-        calculates risk, and prepares entries for GUI, historical logs, and strategy summary.
-        """
         logger.debug(f"--- Analyzing Part Start: {bom_part_number} (Mfg: {bom_manufacturer}, Qty/Unit: {bom_qty_per_unit}) ---")
         # --- Initial Setup ---
-        total_units = config.get('total_units', 1) # Default to 1 if missing
-        buy_up_threshold_pct = config.get('buy_up_threshold', 1.0) # Default threshold
+        total_units = config.get('total_units', 1)
+        buy_up_threshold_pct = config.get('buy_up_threshold', 1.0)
         total_qty_needed = int(bom_qty_per_unit * total_units)
         if total_qty_needed <= 0:
             logger.warning(f"Skipping analysis for {bom_part_number}: Calculated total_qty_needed is zero or negative.")
-            # Return placeholder indicating skip
-            gui_entry = {"PartNumber": bom_part_number, "Notes": "Invalid quantity", **{k: "N/A" for k in ["Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "FastestLT", "FastestCost", "FastestLTSrc", "Alternates"]}}
+            gui_entry = {
+                "PartNumber": bom_part_number,
+                "Notes": "Invalid quantity",
+                **{k: "N/A" for k in ["Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc"]},
+                "Alternates": "No",
+                "AlternatesList": []  # Ensure AlternatesList is set
+            }
+            logger.debug(f"gui_entry for invalid quantity: {gui_entry}")
             return [gui_entry], [], {}
-
-
-        # --- Fetch Data (Uses filtered results from get_part_data_parallel) ---
-        part_results_by_supplier = self.get_part_data_parallel(bom_part_number, bom_manufacturer)
-
+    
+        # --- Fetch Data ---
+        try:
+            part_results_by_supplier = self.get_part_data_parallel(bom_part_number, bom_manufacturer)
+        except Exception as e:
+            logger.error(f"Failed to fetch supplier data for {bom_part_number}: {str(e)}")
+            gui_entry = {
+                "PartNumber": bom_part_number,
+                "Manufacturer": bom_manufacturer or "N/A",
+                "MfgPN": "NOT FOUND",
+                "QtyNeed": total_qty_needed,
+                "Status": "Error",
+                "Sources": "0",
+                "StockAvail": "N/A",
+                "COO": "N/A",
+                "RiskScore": "10.0",
+                "TariffPct": "N/A",
+                "BestCostPer": "N/A",
+                "BestTotalCost": "N/A",
+                "ActualBuyQty": "N/A",
+                "BestCostLT": "N/A",
+                "BestCostSrc": "N/A",
+                "Alternates": "No",
+                "AlternatesList": []  # Ensure AlternatesList is set
+            }
+            logger.debug(f"gui_entry for fetch error: {gui_entry}")
+            return [gui_entry], [], {}
+    
         # --- Initialize Return Structures ---
-        gui_entry = {}
         historical_entries = []
         part_summary = {
             "bom_pn": bom_part_number, "bom_mfg": bom_manufacturer,
@@ -3997,52 +4299,107 @@ class BOMAnalyzerApp:
             "total_qty_needed": total_qty_needed,
             "options": [], "alternates": []
         }
-
-        # --- Handle Case: No Suppliers Found ---
-        if not part_results_by_supplier:
-             logger.warning(f"Part {bom_part_number}: No supplier data returned from API calls.")
-             gui_entry = {
-                 "PartNumber": bom_part_number, "Manufacturer": bom_manufacturer or "N/A", "MfgPN": "NOT FOUND",
-                 "QtyNeed": total_qty_needed, "Status": "Unknown", "Sources": 0, "StockAvail": "0",
-                 "COO": "N/A", "RiskScore": "10.0", "TariffPct": "N/A",
-                 "BestCostPer": "N/A", "BestTotalCost": "N/A", "ActualBuyQty": "N/A", "BestCostLT": "N/A", "BestCostSrc": "N/A",
-                 "FastestLT": "N/A", "FastestCost": "N/A", "FastestLTSrc": "N/A",
-                 "Alternates": "No", "Notes": "No suppliers returned data",
-                 "RiskFactors": {'Sourcing': 10, 'Stock': 10, 'LeadTime': 10, 'Lifecycle': 5, 'Geographic': 3}
-             }
-             part_summary["options"] = []
-             return [gui_entry], historical_entries, part_summary
-
-
-        # --- Process Supplier Data & Create Options List ---
-        all_options_data = []  # Temp list for part_summary['options']
+    
+        # --- Check for No Supplier Data (Unknown) ---
+        if not part_results_by_supplier or all(not isinstance(data, dict) for data in part_results_by_supplier.values()):
+            logger.warning(f"Part {bom_part_number}: No supplier data returned. Marking as Unknown.")
+            gui_entry = {
+                "PartNumber": bom_part_number,
+                "Manufacturer": bom_manufacturer or "N/A",
+                "MfgPN": "NOT FOUND",
+                "QtyNeed": total_qty_needed,
+                "Status": "Unknown",
+                "Sources": "0",
+                "StockAvail": "N/A",
+                "COO": "N/A",
+                "RiskScore": "10.0",
+                "TariffPct": "N/A",
+                "BestCostPer": "N/A",
+                "BestTotalCost": "N/A",
+                "ActualBuyQty": "N/A",
+                "BestCostLT": "N/A",
+                "BestCostSrc": "N/A",
+                "Alternates": "No",
+                "AlternatesList": []  # Ensure AlternatesList is set
+            }
+            logger.debug(f"gui_entry for unknown part: {gui_entry}")
+            return [gui_entry], [], {}
+    
+        # --- Check Lifecycle Status Early ---
+        lifecycle_notes = set()
         consolidated_mfg = bom_manufacturer or "N/A"; mfg_source = "BOM"
         consolidated_mpn = bom_part_number; mpn_source = "BOM"
-
+    
+        # Consolidate Mfg/MPN and check lifecycle
         for source, data in part_results_by_supplier.items():
             if not isinstance(data, dict): continue
-
-            # Consolidate Mfg/MPN
+            # Consolidate Mfg/MPN for alternates lookup
             api_mfg = data.get('Manufacturer')
             api_mpn = data.get('ManufacturerPartNumber')
             if api_mfg and api_mfg != "N/A" and consolidated_mfg == "N/A":
                 consolidated_mfg = api_mfg; mfg_source = source
             if api_mpn and api_mpn != "N/A" and consolidated_mpn == "N/A":
                 consolidated_mpn = api_mpn; mpn_source = source
-
-            # Calculate optimal cost for this supplier's pricing
-            supplier_pricing_breaks = data.get('Pricing', []) # Get pricing from supplier result
+            # Collect lifecycle notes
+            if data.get('Discontinued'): lifecycle_notes.add("DISC")
+            if data.get('EndOfLife'): lifecycle_notes.add("EOL")
+    
+        # --- Handle EOL/Discontinued Parts ---
+        if "EOL" in lifecycle_notes or "DISC" in lifecycle_notes:
+            status = "EOL" if "EOL" in lifecycle_notes else "Discontinued"
+            logger.info(f"Part {bom_part_number} is {status}. Fetching alternates but excluding from calculations.")
+    
+            # Fetch alternates for EOL/Discontinued part
+            substitutes = []
+            if API_KEYS["DigiKey"] and consolidated_mpn != "NOT FOUND":
+                substitutes = self.get_digikey_substitutions(consolidated_mpn)
+            part_summary['alternates'] = substitutes
+    
+            gui_entry = {
+                "PartNumber": bom_part_number,
+                "Manufacturer": consolidated_mfg,
+                "MfgPN": consolidated_mpn,
+                "QtyNeed": total_qty_needed,
+                "Status": status,
+                "Sources": f"{len(part_results_by_supplier)}",
+                "StockAvail": "N/A",
+                "COO": "N/A",
+                "RiskScore": "10.0",
+                "TariffPct": "N/A",
+                "BestCostPer": "N/A",
+                "BestTotalCost": "N/A",
+                "ActualBuyQty": "N/A",
+                "BestCostLT": "N/A",
+                "BestCostSrc": "N/A",
+                "Alternates": "Yes" if substitutes else "No",
+                "AlternatesList": substitutes if substitutes else [],  # Ensure AlternatesList is set
+                "Notes": f"Excluded ({status})"
+            }
+            logger.debug(f"gui_entry for EOL/Discontinued part: {gui_entry}")
+            return [gui_entry], [], part_summary
+    
+        # --- Process Valid Parts ---
+        all_options_data = []
+        for source, data in part_results_by_supplier.items():
+            if not isinstance(data, dict): continue
+            api_mfg = data.get('Manufacturer')
+            api_mpn = data.get('ManufacturerPartNumber')
+            if api_mfg and api_mfg != "N/A" and consolidated_mfg == "N/A":
+                consolidated_mfg = api_mfg; mfg_source = source
+            if api_mpn and api_mpn != "N/A" and consolidated_mpn == "N/A":
+                consolidated_mpn = api_mpn; mpn_source = source
+    
+            # Calculate optimal cost
+            supplier_pricing_breaks = data.get('Pricing', [])
             unit_cost, total_cost, actual_order_qty, cost_notes = self.get_optimal_cost(
                 total_qty_needed, supplier_pricing_breaks, data.get('MinOrderQty', 0), buy_up_threshold_pct
             )
-
-            # Convert lead time immediately and store as float (np.inf if invalid)
-            raw_lead = data.get('LeadTimeDays', np.nan) # Get potentially unconverted or NaN value
-            processed_lead_time = np.inf if pd.isna(raw_lead) else float(raw_lead) # Treat NaN as In
+    
+            processed_lead_time = np.inf if pd.isna(data.get('LeadTimeDays')) else float(data.get('LeadTimeDays'))
             option_dict = {
                 "source": source,
                 "cost": total_cost if pd.notna(total_cost) else np.inf,
-                "lead_time": processed_lead_time, # Store processed lead time (float or inf)
+                "lead_time": processed_lead_time,
                 "stock": data.get('Stock', 0),
                 "unit_cost": unit_cost,
                 "actual_order_qty": actual_order_qty,
@@ -4055,7 +4412,7 @@ class BOMAnalyzerApp:
                 'Manufacturer': data.get('Manufacturer', 'N/A'),
                 'ManufacturerPartNumber': data.get('ManufacturerPartNumber', 'N/A'),
                 'SourcePartNumber': data.get('SourcePartNumber', 'N/A'),
-                'Pricing': supplier_pricing_breaks, # Copy the pricing list 
+                'Pricing': supplier_pricing_breaks,
                 'TariffCode': data.get('TariffCode'),
                 'CountryOfOrigin': data.get('CountryOfOrigin'),
                 'ApiTimestamp': data.get('ApiTimestamp'),
@@ -4064,29 +4421,30 @@ class BOMAnalyzerApp:
                 'notes': cost_notes,
             }
             all_options_data.append(option_dict)
-
-        part_summary["options"] = all_options_data
-        logger.debug(f"Part {bom_part_number}: Processed option from {source}, Cost={option_dict['cost']}, LT={option_dict['lead_time']}, Stock={option_dict['stock']}")
-
-        # --- Check if any valid options were processed ---
+    
         if not all_options_data:
-             logger.error(f"Part {bom_part_number}: Had API results but all_options_data is empty after processing loop. Check logs for errors during processing.")
-             # Return placeholder indicating processing failure
-             gui_entry = {"PartNumber": bom_part_number, "Notes": "Data Processing Error", **{k: "ERR" for k in ["Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "FastestLT", "FastestCost", "FastestLTSrc", "Alternates"]}}
-             return [gui_entry], [], {}
-
+            logger.error(f"Part {bom_part_number}: Had API results but all_options_data is empty after processing loop. Check logs for errors during processing.")
+            gui_entry = {
+                "PartNumber": bom_part_number,
+                "Notes": "Data Processing Error",
+                **{k: "ERR" for k in ["Manufacturer", "MfgPN", "QtyNeed", "Status", "Sources", "StockAvail", "COO", "RiskScore", "TariffPct", "BestCostPer", "BestTotalCost", "ActualBuyQty", "BestCostLT", "BestCostSrc", "Alternates"]},
+                "AlternatesList": []  # Ensure AlternatesList is set
+            }
+            logger.debug(f"gui_entry for data processing error: {gui_entry}")
+            return [gui_entry], [], {}
+    
         part_summary["options"] = all_options_data
-
+    
         # --- Consolidate Part Info (Mfg, MPN, COO, HTS, Alternates) ---
         logger.debug(f"Part {bom_part_number}: Final Consolidated Mfg='{consolidated_mfg}' (Source: {mfg_source}), MPN='{consolidated_mpn}' (Source: {mpn_source})")
         final_component_name = f"{consolidated_mfg} {consolidated_mpn}".strip()
-
+    
         # Get alternates based on consolidated MPN
         substitutes = []
         if API_KEYS["DigiKey"] and consolidated_mpn != "NOT FOUND": # Check if MPN is valid before searching
              substitutes = self.get_digikey_substitutions(consolidated_mpn)
         part_summary['alternates'] = substitutes
-
+    
         # --- Consolidate COO/HTS (Revised with logging) ---
         consolidated_coo = "N/A"; coo_source_log = "None Found"
         consolidated_hts = "N/A"; hts_source_log = "None Found"
@@ -4113,15 +4471,15 @@ class BOMAnalyzerApp:
                     break
     
         logger.info(f"Final COO for {bom_part_number}: {consolidated_coo} (Source: {coo_source_log})")
-
+    
         # --- Calculate Consolidated Metrics & Final GUI Row ---
         options_with_valid_cost = [opt for opt in all_options_data if opt.get('cost', np.inf) != np.inf]
         options_with_valid_lt = [opt for opt in all_options_data if opt.get('lead_time', np.inf) != np.inf] # Includes 0 days
-
+    
         # --- Determine BEST COST Option (Prioritize Stock) ---
         best_cost_option = None
         in_stock_options_cost = [opt for opt in options_with_valid_cost if opt.get('stock', 0) >= total_qty_needed]
-
+    
         if in_stock_options_cost:
             # Among in-stock, find the cheapest (tie-break with source name for stability if needed)
             best_cost_option = min(in_stock_options_cost, key=lambda x: (x.get('cost', np.inf), x.get('source', '')))
@@ -4133,11 +4491,11 @@ class BOMAnalyzerApp:
         else:
             logger.warning(f"Best Cost for {bom_part_number}: No options with valid cost found.")
             # Keep best_cost_option as None
-
+    
         # --- Determine FASTEST Option (Prioritize Stock) ---
         fastest_lt_option = None
         in_stock_options_lt = [opt for opt in all_options_data if opt.get('stock', 0) >= total_qty_needed] # Check all options for stock
-
+    
         if in_stock_options_lt:
             # Among in-stock, find the cheapest (as LT is effectively 0)
             fastest_lt_option = min(in_stock_options_lt, key=lambda x: (x.get('cost', np.inf), x.get('source', '')))
@@ -4148,8 +4506,7 @@ class BOMAnalyzerApp:
             logger.debug(f"Fastest LT for {bom_part_number}: No in-stock options meet need. Selected shortest LT from {fastest_lt_option['source']}")
         else:
             logger.warning(f"Fastest LT for {bom_part_number}: No options with valid lead time found.")
-
-
+    
         # Calculate overall metrics using all available data
         consolidated_tariff_rate, tariff_source_info = self.get_tariff_info(consolidated_hts, consolidated_coo, config.get('custom_tariff_rates', {}))
         stock_prob = self.calculate_stock_probability_simple(all_options_data, total_qty_needed)
@@ -4157,11 +4514,11 @@ class BOMAnalyzerApp:
         min_lead_no_stock = np.inf
         lifecycle_notes = set()
         has_stock_gap = False # Recalculate based on ALL options
-
+    
         for option in all_options_data:
             option['tariff_rate'] = consolidated_tariff_rate # Store tariff rate used
             option['stock_prob'] = stock_prob # Store calculated probability
-
+    
             # Add to historical entries
             historical_entries.append([
                 final_component_name,
@@ -4173,29 +4530,28 @@ class BOMAnalyzerApp:
                 stock_prob,
                 option.get('ApiTimestamp', datetime.now(timezone.utc).isoformat(timespec='seconds'))
             ])
-
+    
             # Update aggregate info
             total_stock_available += option.get('stock', 0)
             if option.get('discontinued'): lifecycle_notes.add("DISC")
             if option.get('eol'): lifecycle_notes.add("EOL")
             if option.get('stock', 0) < total_qty_needed and option.get('lead_time', np.inf) != np.inf:
                  min_lead_no_stock = min(min_lead_no_stock, option['lead_time'])
-
+    
         # Determine stock gap based on ALL options
         has_stock_gap = not any(opt.get('stock', 0) >= total_qty_needed for opt in all_options_data)
-
+    
         # --- Calculate Risk Factors & Score ---
-        # ... (Risk calculation remains the same) ...
         risk_factors = {'Sourcing': 0, 'Stock': 0, 'LeadTime': 0, 'Lifecycle': 0, 'Geographic': 0}
         num_sources_found = len(all_options_data)
         if num_sources_found <= 1: risk_factors['Sourcing'] = 10
         elif num_sources_found == 2: risk_factors['Sourcing'] = 5
         else: risk_factors['Sourcing'] = 1
-
+    
         if has_stock_gap: risk_factors['Stock'] = 8
         elif total_stock_available < 1.5 * total_qty_needed: risk_factors['Stock'] = 4
         else: risk_factors['Stock'] = 0
-
+    
         # Base lead time risk on FASTEST available option's lead time
         fastest_overall_lead = fastest_lt_option.get('lead_time', np.inf) if fastest_lt_option else np.inf
         if fastest_overall_lead == 0: risk_factors['LeadTime'] = 0 # In stock
@@ -4203,13 +4559,13 @@ class BOMAnalyzerApp:
         elif fastest_overall_lead > 90: risk_factors['LeadTime'] = 7
         elif fastest_overall_lead > 45: risk_factors['LeadTime'] = 4
         else: risk_factors['LeadTime'] = 1
-
+    
         if "EOL" in lifecycle_notes or "DISC" in lifecycle_notes: risk_factors['Lifecycle'] = 10
         else: risk_factors['Lifecycle'] = 0
         risk_factors['Geographic'] = self.GEO_RISK_TIERS.get(consolidated_coo, self.GEO_RISK_TIERS["_DEFAULT_"])
         overall_risk_score = sum(risk_factors[factor] * self.RISK_WEIGHTS[factor] for factor in self.RISK_WEIGHTS)
         overall_risk_score = round(max(0, min(10, overall_risk_score)), 1)
-
+    
         # --- Determine Status and Notes for GUI ---
         status = "Active"; notes_str_list = []
         if "EOL" in lifecycle_notes: status = "EOL"
@@ -4219,7 +4575,7 @@ class BOMAnalyzerApp:
         best_cost_notes = best_cost_option.get('notes', '') if best_cost_option else ''
         if best_cost_notes: notes_str_list.append(best_cost_notes)
         notes_str = "; ".join(notes_str_list)
-
+    
         # --- Create Final GUI Entry using best_cost_option and fastest_lt_option ---
         gui_entry = {
             "PartNumber": bom_part_number,
@@ -4228,31 +4584,25 @@ class BOMAnalyzerApp:
             "QtyNeed": total_qty_needed,
             "Status": status,
             "Sources": f"{len(all_options_data)}",
-            "StockAvail": f"{total_stock_available}", # Show total across all sources
+            "StockAvail": f"{total_stock_available}",
             "COO": consolidated_coo,
             "RiskScore": f"{overall_risk_score:.1f}" if pd.notna(overall_risk_score) else "N/A",
             "TariffPct": f"{consolidated_tariff_rate * 100:.1f}%" if pd.notna(consolidated_tariff_rate) else "N/A",
-
-            # Best Cost Section (from best_cost_option determined above)
-            "BestCostPer": f"{best_cost_option['unit_cost']:.4f}" if best_cost_option and pd.notna(best_cost_option.get('unit_cost')) else "N/A",
-            "BestTotalCost": f"{best_cost_option['cost']:.2f}" if best_cost_option and best_cost_option.get('cost') != np.inf else "N/A",
-            "ActualBuyQty": f"{best_cost_option['actual_order_qty']}" if best_cost_option else "N/A",
-            "BestCostLT": f"{best_cost_option['lead_time']:.0f}" if best_cost_option and best_cost_option.get('lead_time') != np.inf else ("0" if best_cost_option and best_cost_option.get('stock',0)>=total_qty_needed else "N/A"), # Show 0 if stock >= need
-            "BestCostSrc": best_cost_option['source'] if best_cost_option else "N/A",
-
-            # Fastest LT Section (from fastest_lt_option determined above)
-            "FastestLT": f"{fastest_lt_option['lead_time']:.0f}" if fastest_lt_option and fastest_lt_option.get('lead_time') != np.inf else ("0" if fastest_lt_option and fastest_lt_option.get('stock',0)>=total_qty_needed else "N/A"), # Show 0 if stock >= need
-            "FastestCost": f"{fastest_lt_option['cost']:.2f}" if fastest_lt_option and fastest_lt_option.get('cost') != np.inf else "N/A",
-            "FastestLTSrc": fastest_lt_option['source'] if fastest_lt_option else "N/A",
-
-            "Alternates": "Yes" if part_summary.get('alternates') else "No", # Use alternates from part_summary
+            "BestCostPer": f"{best_cost_option.get('unit_cost', np.nan):.4f}" if best_cost_option and pd.notna(best_cost_option.get('unit_cost', np.nan)) else "N/A",
+            "BestTotalCost": f"{best_cost_option.get('cost', np.inf):.2f}" if best_cost_option and best_cost_option.get('cost', np.inf) != np.inf else "N/A",
+            "ActualBuyQty": f"{best_cost_option.get('actual_order_qty', 'N/A')}" if best_cost_option else "N/A",
+            "BestCostLT": f"{best_cost_option.get('lead_time', np.inf):.0f}" if best_cost_option and best_cost_option.get('lead_time', np.inf) != np.inf else ("0" if best_cost_option and best_cost_option.get('stock', 0) >= total_qty_needed else "N/A"),
+            "BestCostSrc": best_cost_option.get('source', "N/A") if best_cost_option else "N/A",
+            "Alternates": "Yes" if part_summary.get('alternates') else "No",
+            "AlternatesList": part_summary.get('alternates', []),  # Ensure AlternatesList is set
             "Notes": notes_str,
-            "RiskFactors": risk_factors # Store detailed factors
+            "RiskFactors": risk_factors
         }
-
+        logger.debug(f"gui_entry for valid part: {gui_entry}")
+    
         return [gui_entry], historical_entries, part_summary
 
-
+    
     # --- Main Analysis Execution Flow ---
     def validate_and_run_analysis(self):
         """Validates inputs and starts the analysis thread."""
@@ -4312,117 +4662,74 @@ class BOMAnalyzerApp:
         self.thread_pool.submit(self.run_analysis_thread, config) # Pass validated config dict
 
     def run_analysis_thread(self, config):
-        """ The function that runs in a separate thread to perform analysis. """
         start_time = time.time()
         try:
-            # Initial check if BOM is still valid (unlikely to change, but good practice)
             if self.bom_df is None or self.bom_df.empty:
-                 self.update_status_threadsafe("Error: BOM became invalid before analysis start.", "error")
-                 return
-
-            # Re-check DigiKey token right before heavy API usage
+                self.update_status_threadsafe("Error: BOM became invalid before analysis start.", "error")
+                return
+    
             if API_KEYS["DigiKey"]:
-                 self.update_status_threadsafe("Checking DigiKey token...", "info")
-                 access_token = self.get_digikey_token() # This might block/trigger OAuth
-                 if not access_token:
-                      logger.error("Analysis cancelled: Failed to obtain DigiKey token.")
-                      self.update_status_threadsafe("Analysis Cancelled: DigiKey Auth Failed.", "error")
-                      self.root.after(0, messagebox.showerror, "Auth Error", "Could not get/refresh DigiKey token. Analysis cancelled.")
-                      return # Exit thread gracefully
-                 else:
-                      self.update_status_threadsafe("API tokens check OK.", "info")
-
-            # Clear temporary caches
-            self._hts_cache = {} # Clear HTS cache for this run
-
-            # Prepare lists for results
+                self.update_status_threadsafe("Checking DigiKey token...", "info")
+                access_token = self.get_digikey_token()
+                if not access_token:
+                    logger.error("Analysis cancelled: Failed to obtain DigiKey token.")
+                    self.update_status_threadsafe("Analysis Cancelled: DigiKey Auth Failed.", "error")
+                    self.root.after(0, messagebox.showerror, "Auth Error", "Could not get/refresh DigiKey token. Analysis cancelled.")
+                    return
+    
+            self._hts_cache = {}
             all_analysis_entries = []
             all_historical_entries = []
             all_part_summaries = []
             total_parts_in_bom = len(self.bom_df)
             self.update_progress_threadsafe(0, total_parts_in_bom, "Initializing...")
-
-            # --- Process each BOM line ---
+    
             for i, row in self.bom_df.iterrows():
-                if not self.running_analysis: # Check for cancellation signal
-                     logger.info("Analysis run cancelled by user request.")
-                     self.update_status_threadsafe("Analysis Cancelled.", "warning")
-                     return # Exit thread
-
+                if not self.running_analysis: logger.info("Analysis run cancelled."); return
                 bom_pn = row['Part Number']
                 bom_mfg = row.get('Manufacturer', '')
-                bom_qty_per = row['Quantity'] # Already validated during load
-
-                # Update progress in GUI thread
+                bom_qty_per = row['Quantity']
                 self.update_progress_threadsafe(i, total_parts_in_bom, f"Analyzing {bom_pn[:25]}...")
-
-                # --- Call the core analysis function for the part ---
                 part_gui_rows, part_hist_rows, part_summary = self.analyze_single_part(
-                    bom_pn, bom_mfg, bom_qty_per, config # Pass qty_per_unit
+                    bom_pn, bom_mfg, bom_qty_per, config
                 )
-
-                # Append results
                 all_analysis_entries.extend(part_gui_rows)
                 all_historical_entries.extend(part_hist_rows)
-                if part_summary and part_summary.get('options'): # Only add summaries if options were found
+                if part_summary.get('options'):
                     all_part_summaries.append(part_summary)
-
-                # Brief sleep to allow GUI updates and prevent overwhelming API (optional)
-                # time.sleep(0.01)
-
-            # --- Post-Processing After Loop ---
-            if not self.running_analysis: return # Final check before aggregation
-
+    
+            if not self.running_analysis: return
+    
             self.update_progress_threadsafe(total_parts_in_bom, total_parts_in_bom, "Aggregating results...")
-
-            # Store results in the main dictionary
             self.analysis_results["config"] = config
             self.analysis_results["part_summaries"] = all_part_summaries
-            self.analysis_results["gui_entries"] = all_analysis_entries # Store GUI rows
-
-            # 1. Populate Main Treeview (schedule on GUI thread)
+            self.analysis_results["gui_entries"] = all_analysis_entries
             self.root.after(0, self.populate_treeview, self.tree, all_analysis_entries)
-
-            # 2. Save Historical Data (submit to thread pool to avoid blocking)
+    
             if all_historical_entries:
                 logger.info(f"Submitting append of {len(all_historical_entries)} rows to {HISTORICAL_DATA_FILE.name}")
                 self.thread_pool.submit(append_to_csv, HISTORICAL_DATA_FILE, all_historical_entries)
-                # Consider reloading historical data in background if needed immediately for predictions
-                # self.historical_data_df = pd.concat([self.historical_data_df, pd.DataFrame(all_historical_entries, columns=self.hist_header)], ignore_index=True)
-
-            # 3. Calculate Summary Metrics (this populates self.strategies_for_export)
+    
             summary_metrics = self.calculate_summary_metrics(all_part_summaries, config)
-            self.analysis_results["summary_metrics"] = summary_metrics # Store list of tuples
-
-            # 4. Populate Analysis Summary Table (schedule on GUI thread)
+            self.analysis_results["summary_metrics"] = summary_metrics
+            logger.debug(f"Data being sent to populate_treeview for analysis_table:\nType: {type(summary_metrics)}\nContent: {summary_metrics}")
             self.root.after(0, self.populate_treeview, self.analysis_table, summary_metrics)
-
-            # 5. Store calculated strategies (already populated in self.strategies_for_export by calculate_summary_metrics)
+    
             self.analysis_results["strategies"] = self.strategies_for_export
-            logger.debug(f"Strategies available for export after run: {list(self.analysis_results.get('strategies', {}).keys())}")
-
-            # 6. Enable Export Buttons (schedule on GUI thread after a delay)
             self.root.after(100, self.update_export_buttons_state)
-
+    
             elapsed_time = time.time() - start_time
-            self.update_status_threadsafe(f"Analysis complete ({total_parts_in_bom} parts in {elapsed_time:.1f}s).", "success")
+            self.update_status_threadsafe(f"Analysis complete ({len(all_part_summaries)} valid parts in {elapsed_time:.1f}s).", "success")
             self.update_progress_threadsafe(total_parts_in_bom, total_parts_in_bom, "Done")
-
+    
         except Exception as e:
-             logger.error(f"Analysis thread encountered an error: {e}", exc_info=True)
-             self.update_status_threadsafe(f"Analysis Error: {e}", "error")
-             # Show error popup in GUI thread
-             self.root.after(0, messagebox.showerror, "Analysis Error", f"An error occurred during analysis:\n\n{e}\n\nCheck logs for details.")
-             # Clear potentially partial results
-             self.analysis_results = {}
-             self.strategies_for_export = {}
-             self.root.after(0, self.clear_treeview, self.tree)
-             self.root.after(0, self.clear_treeview, self.analysis_table)
+            logger.error(f"Analysis failed: {str(e)}", exc_info=True)
+            self.update_status_threadsafe(f"Analysis Failed: {str(e)}", "error")
+            self.root.after(0, messagebox.showerror, "Analysis Error", f"An error occurred during analysis:\n{str(e)}")
         finally:
-             self.running_analysis = False
-             # Re-enable controls in GUI thread
-             self.root.after(50, self.update_analysis_controls_state, False)
-             self.root.after(100, self.setup_plot_options)
+            self.running_analysis = False
+            self.root.after(50, self.update_analysis_controls_state, False)
+            self.root.after(100, self.setup_plot_options)
 
 
     def calculate_summary_metrics(self, part_summaries, config):
@@ -4435,67 +4742,58 @@ class BOMAnalyzerApp:
         max_lead_time_optimized = 0; max_lead_time_in_stock = 0; max_lead_time_with_lt = 0
         strict_parts_count = 0; min_parts_count = 0; fastest_parts_count = 0
         in_stock_parts_count = 0; with_lt_parts_count = 0; optimized_parts_count = 0
-        max_cost_parts_count = 0 # Tracks parts contributing a valid cost for max calculation
-        # Initialize overall invalid flags to False
+        max_cost_parts_count = 0
         invalid_strict_min = False; invalid_min = False; invalid_max = False
         invalid_fastest = False; invalid_optimized = False; invalid_in_stock = False
         invalid_with_lt = False
-        clear_to_build_stock_only = True # Assume true initially
-        time_to_acquire_all_parts = 0 # Start at 0, will be updated with max lead time needed
+        clear_to_build_stock_only = True
+        time_to_acquire_all_parts = 0
         stock_gap_parts = []; parts_with_stock_avail = 0
         total_parts_analyzed = len(part_summaries)
         strict_lowest_cost_strategy = {}; lowest_cost_strategy = {}; fastest_strategy = {}
         optimized_strategy = {}; in_stock_strategy = {}; with_lt_strategy = {}
         near_miss_info = {}
-        invalid_parts_list = [] # Track parts with no valid data at all
-
-
-        # --- Helper Function for Strict Cost ---
+        invalid_parts_list = []
+        ignored_parts_list = []
+        unknown_parts_list = []
+        valid_part_names = []
+    
         def _calculate_strict_cost(qty_needed, pricing, moq):
-            # Calculates cost for max(qty_needed, moq) without price-break buy-ups.
             try: qty_needed_int = int(qty_needed)
-            except (ValueError, TypeError): return np.inf, qty_needed # Return original qty if conversion fails
+            except (ValueError, TypeError): return np.inf, qty_needed
             if not pricing: return np.inf, max(qty_needed_int, int(safe_float(moq, default=1)))
-
+    
             moq_int = max(1, int(safe_float(moq, default=1)))
             strict_order_qty = max(qty_needed_int, moq_int)
             unit_price = np.inf
             applicable_break = None
-
-            # Sort pricing just in case it's not
+    
             sorted_pricing = sorted([pb for pb in pricing if isinstance(pb, dict)], key=lambda p: int(safe_float(p.get('qty'), default=0)))
-
-            for pb in sorted_pricing: # Assumes pricing is sorted
+            for pb in sorted_pricing:
                 pb_qty = int(safe_float(pb.get('qty'), default=0))
                 price = safe_float(pb.get('price'), default=np.inf)
                 if pb_qty <= 0 or pd.isna(price) or price == np.inf: continue
-
                 if strict_order_qty >= pb_qty:
-                    applicable_break = pb # This is the highest break LE strict_order_qty
+                    applicable_break = pb
                 else:
-                    # We've passed the quantity needed, stop checking higher breaks
                     break
-
+    
             if applicable_break:
                 unit_price = safe_float(applicable_break.get('price'), default=np.inf)
             elif sorted_pricing:
-                # No break met or exceeded strict_order_qty, use the lowest price break
-                # but we might need to increase order qty to meet the first break's min qty
                 first_break = sorted_pricing[0]
                 first_break_qty = int(safe_float(first_break.get('qty'), default=1))
                 first_break_price = safe_float(first_break.get('price'), default=np.inf)
-
                 if first_break_qty > 0 and pd.notna(first_break_price) and first_break_price != np.inf:
-                     # If the needed qty is below the first break, we MUST order at least the first break qty
-                     strict_order_qty = max(strict_order_qty, first_break_qty)
-                     unit_price = first_break_price
-                # If even the first break is invalid, unit_price remains inf
-
+                    strict_order_qty = max(strict_order_qty, first_break_qty)
+                    unit_price = first_break_price
+    
             final_cost = float(unit_price) * strict_order_qty if pd.notna(unit_price) and unit_price != np.inf else np.inf
             return final_cost, strict_order_qty
-        # --- End Helper Function ---
 
-
+        parts_with_sufficient_single_source_stock = 0 
+        total_active_parts_considered = 0 
+    
         # --- Iterate Through Each Part Summary ---
         for i, summary in enumerate(part_summaries):
             bom_pn = summary.get('bom_pn', f'UnknownPart_{i}')
@@ -4506,8 +4804,7 @@ class BOMAnalyzerApp:
             except (ValueError, TypeError):
                 logger.warning(f"Invalid or zero quantity needed for {bom_pn}. Skipping part.")
                 invalid_parts_list.append(f"{bom_pn} (Invalid Qty)")
-                # Mark all strategies as invalid due to this part
-                invalid_strict_min=invalid_min=invalid_max=invalid_fastest=invalid_optimized=invalid_in_stock=invalid_with_lt=True
+                invalid_strict_min = invalid_min = invalid_max = invalid_fastest = invalid_optimized = invalid_in_stock = invalid_with_lt = True
                 clear_to_build_stock_only = False
                 stock_gap_parts.append(f"{bom_pn}: Invalid Qty")
                 time_to_acquire_all_parts = np.inf
@@ -4515,10 +4812,23 @@ class BOMAnalyzerApp:
                 for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
                                       optimized_strategy, in_stock_strategy, with_lt_strategy]:
                     strategy_dict[bom_pn] = placeholder
-                continue # Skip to next part
-
+                continue
+    
             options = summary.get('options', [])
-            # Pre-process lead times: NaN/None -> Inf, ensure numeric type
+            if not options:
+                logger.info(f"No options for {bom_pn}. Skipping part.")
+                invalid_parts_list.append(f"{bom_pn} (No Data)")
+                invalid_strict_min = invalid_min = invalid_max = invalid_fastest = invalid_optimized = invalid_in_stock = invalid_with_lt = True
+                clear_to_build_stock_only = False
+                stock_gap_parts.append(f"{bom_pn}: No Valid Data")
+                time_to_acquire_all_parts = np.inf
+                placeholder = self.create_strategy_entry({'notes': 'No Valid Data Found', 'bom_pn': bom_pn, 'total_qty_needed': qty_needed})
+                for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
+                                      optimized_strategy, in_stock_strategy, with_lt_strategy]:
+                    strategy_dict[bom_pn] = placeholder
+                continue
+    
+            valid_part_names.append(bom_pn)
             for opt in options:
                 if isinstance(opt, dict):
                     lt = opt.get('lead_time')
@@ -4526,147 +4836,121 @@ class BOMAnalyzerApp:
                         opt['lead_time'] = np.inf
                     else:
                         try:
-                            opt['lead_time'] = float(lt) # Ensure it's a float
-                            if opt['lead_time'] < 0: opt['lead_time'] = np.inf # Negative lead time is invalid
+                            opt['lead_time'] = float(lt)
+                            if opt['lead_time'] < 0: opt['lead_time'] = np.inf
                         except (ValueError, TypeError):
-                             opt['lead_time'] = np.inf # Treat non-numeric as infinite LT
-
-            # Filter for options that have *at least* a valid FINITE cost OR a valid FINITE lead time
+                            opt['lead_time'] = np.inf
+    
             valid_options_for_calc = [
                 opt for opt in options
                 if isinstance(opt, dict) and
-                   ( (safe_float(opt.get('cost'), default=np.inf) != np.inf) or \
-                     (opt.get('lead_time', np.inf) != np.inf) ) # Already pre-processed to be numeric/inf
+                   ((safe_float(opt.get('cost'), default=np.inf) != np.inf) or
+                    (opt.get('lead_time', np.inf) != np.inf))
             ]
-
-            # --- Initialize part-level flags ---
+    
             part_invalid_strict = False; part_invalid_min = False; part_invalid_max = False
             part_invalid_fastest = False; part_invalid_optimized = False
             part_invalid_in_stock = False; part_invalid_with_lt = False
-
-            if not valid_options_for_calc:
-                 logger.warning(f"No valid options with finite cost OR finite lead time for {bom_pn}. Marking as unavailable for ALL calculations.")
-                 invalid_parts_list.append(bom_pn)
-                 clear_to_build_stock_only = False
-                 stock_gap_parts.append(f"{bom_pn}: No Valid Data")
-                 # Set part flags (overall flags will be set later)
-                
-                 time_to_acquire_all_parts = np.inf # Cannot acquire if no valid options
-                 placeholder = self.create_strategy_entry({
-                     'notes': 'No Valid Data Found',
-                     'bom_pn': bom_pn, # Include bom_pn in placeholder
-                     'total_qty_needed': qty_needed # And qty
-                 })
-                 # Store placeholder immediately for this part
-                 for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
-                                 optimized_strategy, in_stock_strategy, with_lt_strategy]:
-                     strategy_dict[bom_pn] = placeholder 
     
-                 continue # Skip further calculations for this part
-
-            # --- Initialize per-part bests ---
+            if not valid_options_for_calc:
+                logger.warning(f"No valid options with finite cost OR finite lead time for {bom_pn}. Marking as unavailable for ALL calculations.")
+                invalid_parts_list.append(bom_pn)
+                clear_to_build_stock_only = False
+                stock_gap_parts.append(f"{bom_pn}: No Valid Data")
+                time_to_acquire_all_parts = np.inf
+                placeholder = self.create_strategy_entry({'notes': 'No Valid Data Found', 'bom_pn': bom_pn, 'total_qty_needed': qty_needed})
+                for strategy_dict in [strict_lowest_cost_strategy, lowest_cost_strategy, fastest_strategy,
+                                      optimized_strategy, in_stock_strategy, with_lt_strategy]:
+                    strategy_dict[bom_pn] = placeholder
+                continue
+    
             best_cost_option_strict_ref = None; part_min_cost_strict = np.inf
-            best_cost_option_optimized_ref = None; part_min_cost_optimized = np.inf # This is the baseline lowest cost option ref
+            best_cost_option_optimized_ref = None; part_min_cost_optimized = np.inf
             fastest_option_ref = None; part_fastest_cost = np.inf; part_min_lead = np.inf
             best_in_stock_option_ref = None; part_min_cost_in_stock = np.inf
             best_with_lt_option_ref = None; part_min_cost_with_lt = np.inf
-
-
-            # --- Calculate Strict Cost & Find Best Option Reference ---
+    
+            # --- Strict Cost ---
             current_min_strict_cost = np.inf
             current_best_lead_for_strict = np.inf
-            calculated_strict_values = {} # Store {source: {'cost': cost, 'qty': qty}}
+            calculated_strict_values = {}
             for option in valid_options_for_calc:
-                source = option.get('source', f'UnknownSource_{valid_options_for_calc.index(option)}') # Unique ID if source missing
+                source = option.get('source', f'UnknownSource_{valid_options_for_calc.index(option)}')
                 pricing_data = option.get('Pricing', [])
                 moq_data = option.get('MinOrderQty', 0)
-
+    
                 strict_cost_val, strict_qty_val = _calculate_strict_cost(qty_needed, pricing_data, moq_data)
                 calculated_strict_values[source] = {'cost': strict_cost_val, 'qty': strict_qty_val}
-
-                # Use lead time as tie-breaker for strict cost
-                option_lead = option.get('lead_time', np.inf) # Already pre-processed
-
+    
+                option_lead = option.get('lead_time', np.inf)
                 if strict_cost_val < current_min_strict_cost:
                     current_min_strict_cost = strict_cost_val
                     current_best_lead_for_strict = option_lead
                     best_cost_option_strict_ref = option
                 elif strict_cost_val == current_min_strict_cost and option_lead < current_best_lead_for_strict:
-                    # Same cost, prefer lower lead time
                     current_best_lead_for_strict = option_lead
                     best_cost_option_strict_ref = option
-
+    
             part_min_cost_strict = current_min_strict_cost
-
-
-            # --- Find Option with Lowest OPTIMIZED Cost (Baseline) ---
-            # This is simply the lowest cost found, using lead time as tie-breaker
+    
+            # --- Lowest Optimized Cost (Baseline) ---
             try:
-                # Sort by cost (finite first), then lead time (finite first)
                 best_cost_option_optimized_ref = min(
                     valid_options_for_calc,
                     key=lambda x: (
                         safe_float(x.get('cost'), default=np.inf),
-                        x.get('lead_time', np.inf) # Already pre-processed
+                        x.get('lead_time', np.inf)
                     )
                 )
                 part_min_cost_optimized = safe_float(best_cost_option_optimized_ref.get('cost'), default=np.inf)
-            except ValueError: # Should not happen if valid_options_for_calc is not empty
+            except ValueError:
                 best_cost_option_optimized_ref = None
                 part_min_cost_optimized = np.inf
-
-
-            # --- Find FASTEST Option ---
-            # Priority 1: In stock (stock >= needed), lowest cost tie-breaker
-            # Priority 2: Finite lead time, lowest lead time, cost tie-breaker
+    
+            # --- Fastest Option ---
             fastest_option_ref = None
-            part_min_lead = np.inf # Reset for this part
-
+            part_min_lead = np.inf
             options_in_stock_f = [
                 opt for opt in valid_options_for_calc
                 if opt.get('stock', 0) >= qty_needed
             ]
-
+    
             if options_in_stock_f:
-                # Found in-stock options, choose the cheapest among them
                 try:
                     fastest_option_ref = min(
                         options_in_stock_f,
                         key=lambda x: (
-                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
-                            x.get('source', '') # Secondary sort: source name (consistent tie-break)
+                            safe_float(x.get('cost'), default=np.inf),
+                            x.get('source', '')
                         )
                     )
-                    part_min_lead = 0 # It's in stock
-                except ValueError: # Should not happen if list is not empty
-                    pass # fastest_option_ref remains None
+                    part_min_lead = 0
+                    part_fastest_cost = safe_float(fastest_option_ref.get('cost'), default=np.inf)
+                except ValueError:
+                    part_fastest_cost = np.inf
             else:
-                # No options fully in stock, look for options with finite lead time
                 options_with_finite_lt = [
                     opt for opt in valid_options_for_calc
                     if opt.get('lead_time', np.inf) != np.inf
                 ]
                 if options_with_finite_lt:
                     try:
-                        # Choose the one with the absolute minimum lead time, use cost as tie-breaker
                         fastest_option_ref = min(
                             options_with_finite_lt,
                             key=lambda x: (
-                                x.get('lead_time'), # Primary sort: lead time
-                                safe_float(x.get('cost'), default=np.inf), # Secondary sort: cost
-                                x.get('source', '') # Tertiary sort: source name
+                                x.get('lead_time'),
+                                safe_float(x.get('cost'), default=np.inf),
+                                x.get('source', '')
                             )
                         )
-                        part_min_lead = fastest_option_ref.get('lead_time') # Get the actual min lead time
+                        part_min_lead = fastest_option_ref.get('lead_time')
+                        part_fastest_cost = safe_float(fastest_option_ref.get('cost'), default=np.inf)
                     except ValueError:
-                         pass # fastest_option_ref remains None
-
-            # Get the cost associated with the chosen fastest option
-            part_fastest_cost = safe_float(fastest_option_ref.get('cost'), default=np.inf) if fastest_option_ref else np.inf
-
-
-            # --- Find LOWEST COST IN STOCK ---
-            # Reuse options_in_stock_f from Fastest calculation
+                        part_fastest_cost = np.inf
+                else:
+                    part_fastest_cost = np.inf
+    
+            # --- Lowest Cost In Stock ---
             best_in_stock_option_ref = None
             part_min_cost_in_stock = np.inf
             if options_in_stock_f:
@@ -4674,17 +4958,15 @@ class BOMAnalyzerApp:
                     best_in_stock_option_ref = min(
                         options_in_stock_f,
                         key=lambda x: (
-                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
-                            x.get('source', '') # Secondary sort: source name
+                            safe_float(x.get('cost'), default=np.inf),
+                            x.get('source', '')
                         )
                     )
                     part_min_cost_in_stock = safe_float(best_in_stock_option_ref.get('cost'), default=np.inf)
                 except ValueError:
                     pass
-
-
-            # --- Find LOWEST COST WITH LEAD TIME ---
-            # Considers options that are either in stock OR have a finite lead time
+    
+            # --- Lowest Cost with Lead Time ---
             best_with_lt_option_ref = None
             part_min_cost_with_lt = np.inf
             options_for_with_lt = [
@@ -4693,38 +4975,31 @@ class BOMAnalyzerApp:
             ]
             if options_for_with_lt:
                 try:
-                    # Choose lowest cost, using lead time as tie-breaker
                     best_with_lt_option_ref = min(
                         options_for_with_lt,
                         key=lambda x: (
-                            safe_float(x.get('cost'), default=np.inf), # Primary sort: cost
-                            x.get('lead_time', np.inf), # Secondary sort: lead time
-                            x.get('source', '') # Tertiary sort: source name
+                            safe_float(x.get('cost'), default=np.inf),
+                            x.get('lead_time', np.inf),
+                            x.get('source', '')
                         )
                     )
                     part_min_cost_with_lt = safe_float(best_with_lt_option_ref.get('cost'), default=np.inf)
                 except ValueError:
                     pass
-
-
-            # --- Determine Part Validity Flags Based on Selections ---
+    
+            # --- Set Part Invalidity Flags ---
             part_invalid_strict = (best_cost_option_strict_ref is None or part_min_cost_strict == np.inf)
             part_invalid_min = (best_cost_option_optimized_ref is None or part_min_cost_optimized == np.inf)
-            part_invalid_fastest = (fastest_option_ref is None or part_fastest_cost == np.inf or part_min_lead == np.inf) # Must have finite lead
+            part_invalid_fastest = (fastest_option_ref is None or part_fastest_cost == np.inf)
             part_invalid_in_stock = (best_in_stock_option_ref is None or part_min_cost_in_stock == np.inf)
             part_invalid_with_lt = (best_with_lt_option_ref is None or part_min_cost_with_lt == np.inf)
-            # Optimized validity determined later
-
-
+    
             # --- Store Strategy Details ---
-            # Strict Lowest Cost
             if not part_invalid_strict:
                 strict_source = best_cost_option_strict_ref.get('source', 'UnknownSource_Strict')
-                strict_vals = calculated_strict_values.get(strict_source) # Use source to get calculated cost/qty
+                strict_vals = calculated_strict_values.get(strict_source)
                 if strict_vals and strict_vals['cost'] != np.inf:
-                    # Create a copy of the chosen option data
                     strict_entry_dict = self.create_strategy_entry(best_cost_option_strict_ref)
-                    # Update with strict calculation results
                     strict_entry_dict.update({
                         'cost': strict_vals['cost'],
                         'actual_order_qty': strict_vals['qty'],
@@ -4733,606 +5008,507 @@ class BOMAnalyzerApp:
                     })
                     strict_lowest_cost_strategy[bom_pn] = strict_entry_dict
                 else:
-                    # Strict calculation failed for the chosen option's source
-                    part_invalid_strict = True # Mark as invalid if strict cost itself was inf or calculation failed
-                    logger.warning(f"Strict cost calculation failed for {bom_pn} at source {strict_source}, even though an option was selected.")
-
-            if part_invalid_strict: # If invalid now or originally
+                    part_invalid_strict = True
+            if part_invalid_strict:
                 strict_lowest_cost_strategy[bom_pn] = self.create_strategy_entry({'notes': 'No Valid (Strict) Cost Option Found'})
-
-            # Store others using create_strategy_entry with the chosen reference option
+    
             lowest_cost_strategy[bom_pn] = self.create_strategy_entry(best_cost_option_optimized_ref) if not part_invalid_min else self.create_strategy_entry({'notes': 'No Valid Optimized Cost Option Found'})
             fastest_strategy[bom_pn] = self.create_strategy_entry(fastest_option_ref) if not part_invalid_fastest else self.create_strategy_entry({'notes': 'No Valid Finite Lead Time Option Found'})
             in_stock_strategy[bom_pn] = self.create_strategy_entry(best_in_stock_option_ref) if not part_invalid_in_stock else self.create_strategy_entry({'notes': 'No In Stock Option Found'})
             with_lt_strategy[bom_pn] = self.create_strategy_entry(best_with_lt_option_ref) if not part_invalid_with_lt else self.create_strategy_entry({'notes': 'No Option Found w/ Stock or Finite LT'})
-
-            if i == 1: # Index 1 corresponds to the second part processed
-                logger.debug(f"--- DETAILED DEBUG FOR PART #{i+1}: {bom_pn} ---")
-                logger.debug(f"Part Invalid Flags: Strict={part_invalid_strict}, Min={part_invalid_min}, Fastest={part_invalid_fastest}, InStock={part_invalid_in_stock}, WithLT={part_invalid_with_lt}, Optimized={part_invalid_optimized}")
-                logger.debug(f"Global Invalid Flags (Start): Strict={invalid_strict_min}, Min={invalid_min}, Fastest={invalid_fastest}, InStock={invalid_in_stock}, WithLT={invalid_with_lt}, Optimized={invalid_optimized}, Max={invalid_max}")
-
-                # Check Strict Strategy Data
-                strict_entry = strict_lowest_cost_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"Strict Entry for {bom_pn}: {strict_entry}")
-                if isinstance(strict_entry, dict): logger.debug(f"  Strict Cost Raw: {strict_entry.get('cost')}, LT Raw: {strict_entry.get('lead_time')}, Stock Raw: {strict_entry.get('stock')}")
-
-                # Check MinBase Strategy Data
-                minbase_entry = lowest_cost_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"MinBase Entry for {bom_pn}: {minbase_entry}")
-                if isinstance(minbase_entry, dict): logger.debug(f"  MinBase Cost Raw: {minbase_entry.get('cost')}, LT Raw: {minbase_entry.get('lead_time')}, Stock Raw: {minbase_entry.get('stock')}")
-
-                # Check Fastest Strategy Data
-                fastest_entry = fastest_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"Fastest Entry for {bom_pn}: {fastest_entry}")
-                if isinstance(fastest_entry, dict): logger.debug(f"  Fastest Cost Raw: {fastest_entry.get('cost')}, LT Raw: {fastest_entry.get('lead_time')}, Stock Raw: {fastest_entry.get('stock')}")
-
-                # Check InStock Strategy Data
-                instock_entry = in_stock_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"InStock Entry for {bom_pn}: {instock_entry}")
-                if isinstance(instock_entry, dict): logger.debug(f"  InStock Cost Raw: {instock_entry.get('cost')}, LT Raw: {instock_entry.get('lead_time')}, Stock Raw: {instock_entry.get('stock')}")
-
-                # Check WithLT Strategy Data
-                withlt_entry = with_lt_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"WithLT Entry for {bom_pn}: {withlt_entry}")
-                if isinstance(withlt_entry, dict): logger.debug(f"  WithLT Cost Raw: {withlt_entry.get('cost')}, LT Raw: {withlt_entry.get('lead_time')}, Stock Raw: {withlt_entry.get('stock')}")
-
-                # Check Optimized Strategy Data
-                optimized_entry = optimized_strategy.get(bom_pn, 'MISSING_ENTRY')
-                logger.debug(f"Optimized Entry for {bom_pn}: {optimized_entry}")
-                if isinstance(optimized_entry, dict): logger.debug(f"  Optimized Cost Raw: {optimized_entry.get('cost')}, LT Raw: {optimized_entry.get('lead_time')}, Stock Raw: {optimized_entry.get('stock')}")
-
-                logger.debug(f"--- END DETAILED DEBUG FOR PART #{i+1}: {bom_pn} ---")
-
-            
-            # --- Aggregate Totals (CHECKING OVERALL AND PART FLAGS, USING ACTUAL LEAD TIME) ---
+    
+            # --- Aggregate Totals ---
             def get_actual_lead(strategy_dict, bom_pn_key, qty_needed_val):
-                """ Helper to get lead time considering stock for a chosen strategy option """
                 if bom_pn_key not in strategy_dict: return np.inf
                 chosen_option = strategy_dict[bom_pn_key]
-                if not isinstance(chosen_option, dict): return np.inf # Handle placeholder non-dict case
-
+                if not isinstance(chosen_option, dict): return np.inf
                 chosen_stock = safe_float(chosen_option.get('stock'), default=0)
                 chosen_qty = safe_float(chosen_option.get('actual_order_qty'), default=qty_needed_val)
                 if chosen_qty <= 0: chosen_qty = qty_needed_val
-
                 chosen_listed_lead = safe_float(chosen_option.get('lead_time'), default=np.inf)
-
-                if chosen_stock >= chosen_qty:
-                    return 0
-                else:
-                    return chosen_listed_lead
-
-            # --- Strict Aggregation ---
-            if not invalid_strict_min: # Only check global flag
+                return 0 if chosen_stock >= chosen_qty else chosen_listed_lead
+    
+            # Strict
+            if not part_invalid_strict and not invalid_strict_min:
                 cost_to_add = safe_float(strict_lowest_cost_strategy[bom_pn].get('cost'), default=np.inf)
                 if cost_to_add != np.inf:
                     total_bom_cost_strict_min += cost_to_add
                     actual_lead_strict = get_actual_lead(strict_lowest_cost_strategy, bom_pn, qty_needed)
-                    if actual_lead_strict == np.inf: max_lead_time_strict_min = np.inf
-                    elif max_lead_time_strict_min != np.inf: max_lead_time_strict_min = max(max_lead_time_strict_min, actual_lead_strict)
+                    if actual_lead_strict != np.inf:
+                        max_lead_time_strict_min = max(max_lead_time_strict_min, actual_lead_strict)
+                    strict_parts_count += 1
                 else:
-                     # Only invalidate if adding INF cost, check if part selection was supposed to be valid
-                     if not part_invalid_strict: # Log if we *should* have had a valid cost
-                         logger.warning(f"Part {bom_pn} added infinite cost to Strict strategy despite part selection being valid. Invalidating.")
-                     invalid_strict_min = True
-            logger.debug(f"Part {bom_pn} - Post-Strict Agg: invalid_strict_min = {invalid_strict_min}")
-
-            # --- Optimized Baseline Cost (total_bom_cost_min) Aggregation ---
-            if not invalid_min: # Only check global flag
+                    logger.warning(f"Part {bom_pn} added infinite cost to Strict strategy. Invalidating.")
+                    invalid_strict_min = True
+            logger.debug(f"Part {bom_pn} - Post-Strict Agg: invalid_strict_min = {invalid_strict_min}, Total Cost = {total_bom_cost_strict_min}, Max LT = {max_lead_time_strict_min}")
+    
+            # Optimized Baseline Cost
+            if not part_invalid_min and not invalid_min:
                 cost_to_add = safe_float(lowest_cost_strategy[bom_pn].get('cost'), default=np.inf)
                 if cost_to_add != np.inf:
                     total_bom_cost_min += cost_to_add
                     actual_lead_min = get_actual_lead(lowest_cost_strategy, bom_pn, qty_needed)
-                    if actual_lead_min == np.inf: max_lead_time_min = np.inf
-                    elif max_lead_time_min != np.inf: max_lead_time_min = max(max_lead_time_min, actual_lead_min)
+                    if actual_lead_min != np.inf:
+                        max_lead_time_min = max(max_lead_time_min, actual_lead_min)
+                    min_parts_count += 1
                 else:
-                    if not part_invalid_min:
-                        logger.warning(f"Part {bom_pn} added infinite cost to Min Cost strategy despite part selection being valid. Invalidating.")
+                    logger.warning(f"Part {bom_pn} added infinite cost to Min Cost strategy. Invalidating.")
                     invalid_min = True
-            logger.debug(f"Part {bom_pn} - Post-MinBase Agg: invalid_min = {invalid_min}")
-
-            # --- Fastest Aggregation ---
-            if not invalid_fastest: # Only check global flag
-                 cost_to_add = safe_float(fastest_strategy[bom_pn].get('cost'), default=np.inf)
-                 if cost_to_add != np.inf:
+            logger.debug(f"Part {bom_pn} - Post-MinBase Agg: invalid_min = {invalid_min}, Total Cost = {total_bom_cost_min}, Max LT = {max_lead_time_min}")
+    
+            # Fastest
+            if not part_invalid_fastest and not invalid_fastest:
+                cost_to_add = part_fastest_cost
+                if cost_to_add != np.inf:
                     total_bom_cost_fastest += cost_to_add
-                    actual_lead_fastest = part_min_lead # Use pre-calculated fastest lead
-                    if actual_lead_fastest == np.inf: max_lead_time_fastest = np.inf
-                    elif max_lead_time_fastest != np.inf: max_lead_time_fastest = max(max_lead_time_fastest, actual_lead_fastest)
-                 else:
-                    if not part_invalid_fastest:
-                         logger.warning(f"Part {bom_pn} added infinite cost to Fastest strategy despite part selection being valid. Invalidating.")
+                    actual_lead_fastest = part_min_lead
+                    if actual_lead_fastest != np.inf:
+                        max_lead_time_fastest = max(max_lead_time_fastest, actual_lead_fastest)
+                    fastest_parts_count += 1
+                else:
+                    logger.warning(f"Part {bom_pn} added infinite cost to Fastest strategy. Invalidating.")
                     invalid_fastest = True
-            logger.debug(f"Part {bom_pn} - Post-Fastest Agg: invalid_fastest = {invalid_fastest}")
-
-            # --- In Stock Aggregation ---
-            # This strategy REQUIRES the part to be valid for in-stock
-            if not part_invalid_in_stock: # <<< KEEP part-level check here
-                if not invalid_in_stock:
-                    cost_to_add = safe_float(in_stock_strategy[bom_pn].get('cost'), default=np.inf)
-                    if cost_to_add != np.inf:
-                        total_bom_cost_in_stock += cost_to_add
-                        # LT stays 0
-                    else:
-                        logger.warning(f"Part {bom_pn} added infinite cost to In Stock strategy. Invalidating.")
-                        invalid_in_stock = True
-            # No else needed here, if part_invalid_in_stock is True, we just skip aggregation for this part
-            logger.debug(f"Part {bom_pn} - Post-InStock Agg: invalid_in_stock = {invalid_in_stock}")
-
-            # --- With LT Aggregation ---
-            if not invalid_with_lt: # Only check global flag
-                cost_to_add = safe_float(with_lt_strategy[bom_pn].get('cost'), default=np.inf)
+            logger.debug(f"Part {bom_pn} - Post-Fastest Agg: invalid_fastest = {invalid_fastest}, Total Cost = {total_bom_cost_fastest}, Max LT = {max_lead_time_fastest}")
+    
+            # In Stock
+            if not part_invalid_in_stock and not invalid_in_stock:
+                cost_to_add = part_min_cost_in_stock
+                if cost_to_add != np.inf:
+                    total_bom_cost_in_stock += cost_to_add
+                    in_stock_parts_count += 1
+                else:
+                    logger.warning(f"Part {bom_pn} added infinite cost to In Stock strategy. Invalidating.")
+                    invalid_in_stock = True
+            logger.debug(f"Part {bom_pn} - Post-InStock Agg: invalid_in_stock = {invalid_in_stock}, Total Cost = {total_bom_cost_in_stock}")
+    
+            # With LT
+            if not part_invalid_with_lt and not invalid_with_lt:
+                cost_to_add = part_min_cost_with_lt
                 if cost_to_add != np.inf:
                     total_bom_cost_with_lt += cost_to_add
                     actual_lead_with_lt = get_actual_lead(with_lt_strategy, bom_pn, qty_needed)
-                    if actual_lead_with_lt == np.inf: max_lead_time_with_lt = np.inf
-                    elif max_lead_time_with_lt != np.inf: max_lead_time_with_lt = max(max_lead_time_with_lt, actual_lead_with_lt)
+                    if actual_lead_with_lt != np.inf:
+                        max_lead_time_with_lt = max(max_lead_time_with_lt, actual_lead_with_lt)
+                    with_lt_parts_count += 1
                 else:
-                    if not part_invalid_with_lt:
-                        logger.warning(f"Part {bom_pn} added infinite cost to With LT strategy despite part selection being valid. Invalidating.")
+                    logger.warning(f"Part {bom_pn} added infinite cost to With LT strategy. Invalidating.")
                     invalid_with_lt = True
-            logger.debug(f"Part {bom_pn} - Post-WithLT Agg: invalid_with_lt = {invalid_with_lt}")
-
-
-            # --- Max Cost Aggregation ---
-            # Logic remains the same, as it already correctly invalidates based on part-level data
+            logger.debug(f"Part {bom_pn} - Post-WithLT Agg: invalid_with_lt = {invalid_with_lt}, Total Cost = {total_bom_cost_with_lt}, Max LT = {max_lead_time_with_lt}")
+    
+            # Max Cost
             part_max_cost = 0.0
-            valid_costs_part = [ safe_float(opt.get('cost')) for opt in valid_options_for_calc if pd.notna(safe_float(opt.get('cost'), default=np.nan)) and safe_float(opt.get('cost'), default=np.inf) != np.inf ]
+            valid_costs_part = [safe_float(opt.get('cost')) for opt in valid_options_for_calc if pd.notna(safe_float(opt.get('cost'), default=np.nan)) and safe_float(opt.get('cost'), default=np.inf) != np.inf]
             if valid_costs_part:
                 part_max_cost = max(valid_costs_part)
-                if not invalid_max: total_bom_cost_max += part_max_cost
+                if not invalid_max:
+                    total_bom_cost_max += part_max_cost
+                max_cost_parts_count += 1
             else:
-                if not invalid_max: logger.warning(f"Part {bom_pn} has no valid cost options. Invalidating overall Max Cost calculation.")
+                logger.warning(f"Part {bom_pn} has no valid cost options. Invalidating overall Max Cost calculation.")
                 invalid_max = True
-            logger.debug(f"Part {bom_pn} - Post-Max Agg: invalid_max = {invalid_max}")
-
-
-
+            logger.debug(f"Part {bom_pn} - Post-Max Agg: invalid_max = {invalid_max}, Total Cost = {total_bom_cost_max}")
+    
             # --- Optimized Strategy Calculation ---
-            target_lt_days = config.get('target_lead_time_days', np.inf) # Use .get with default
+            target_lt_days = config.get('target_lead_time_days', np.inf)
             max_prem_pct = config.get('max_premium', np.inf)
             cost_weight = config.get('cost_weight', 0.5)
             lead_weight = config.get('lead_time_weight', 0.5)
-
-            chosen_option_opt_ref = None # Reference to the chosen option dict
+    
+            chosen_option_opt_ref = None
             opt_notes = ""
             best_score = np.inf
-            part_invalid_optimized = False # Reset part-level flag for optimized
-
-            if part_invalid_min: # Cannot run optimized if baseline (lowest) cost is invalid for this part
+            part_invalid_optimized = False
+    
+            if part_invalid_min:
                 logger.warning(f"Optimized Strategy: Skipping {bom_pn} as base lowest cost is invalid for this part.")
                 opt_notes = "N/A (Invalid Base Cost)"
-                part_invalid_optimized = True # Mark part as invalid for optimized
-                # Fallback logic will be handled after constraint checking block
+                part_invalid_optimized = True
             else:
-                # Baseline cost for premium calculation is part_min_cost_optimized
                 baseline_cost = part_min_cost_optimized
-
-                constrained_options = [] # Options meeting LT and Premium constraints
-                # logger.debug(f"Optimized Strategy [{bom_pn}]: BaseCost={baseline_cost:.4f}, TargetLT={target_lt_days}d, MaxPremium={max_prem_pct}%")
-
+                constrained_options = []
+    
                 for opt_idx, option in enumerate(valid_options_for_calc):
                     cost = safe_float(option.get('cost'), default=np.inf)
-                    lead_time = option.get('lead_time', np.inf) # Already pre-processed
-
-                    # Basic validity check for this option
-                    if cost == np.inf: continue # Must have a valid cost to be considered
-
-                    # Constraint Check 1: Lead Time
-                    # Allow options with 0 stock if lead time meets target
-                    # Allow options with stock > 0 even if lead time > target (since effective LT is 0)
+                    lead_time = option.get('lead_time', np.inf)
                     stock = option.get('stock', 0)
                     effective_lead_time = 0 if stock >= qty_needed else lead_time
-
+    
+                    if cost == np.inf: continue
+    
                     if effective_lead_time == np.inf or effective_lead_time > target_lt_days:
-                         # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): Failed LT constraint (Effective LT: {effective_lead_time} > Target: {target_lt_days})")
-                         continue # Fails lead time constraint
-
-                    # Constraint Check 2: Cost Premium
+                        continue
+    
                     cost_premium_pct_calc = 0.0
-                    if baseline_cost > 1e-9: # Avoid division by zero
+                    if baseline_cost > 1e-9:
                         cost_premium_pct_calc = ((cost - baseline_cost) / baseline_cost * 100.0)
-                    else: # If baseline cost is zero or near-zero, any positive cost is infinite premium
+                    else:
                         if cost > 1e-9: cost_premium_pct_calc = np.inf
-
+    
                     if cost_premium_pct_calc > max_prem_pct:
-                        # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): Failed Premium constraint (Premium: {cost_premium_pct_calc:.2f}% > Max: {max_prem_pct}%)")
-                        continue # Fails cost premium constraint
-
-                    # logger.debug(f"  Opt {opt_idx} ({option.get('source')}): PASSED constraints (Cost={cost}, Eff LT={effective_lead_time})")
+                        continue
+    
                     constrained_options.append(option)
-
-                # --- Score valid constrained options ---
+    
                 if constrained_options:
-                    # Find min/max cost and effective lead time *within the constrained set* for normalization
-                    constrained_costs = [safe_float(opt.get('cost')) for opt in constrained_options] # Already filtered for cost != inf
-                    constrained_effective_lts = []
-                    for opt in constrained_options:
-                        stock = opt.get('stock', 0)
-                        lead = opt.get('lead_time', np.inf)
-                        eff_lt = 0 if stock >= qty_needed else lead
-                        if eff_lt != np.inf: constrained_effective_lts.append(eff_lt)
-
+                    constrained_costs = [safe_float(opt.get('cost')) for opt in constrained_options]
+                    constrained_effective_lts = [0 if opt.get('stock', 0) >= qty_needed else opt.get('lead_time', np.inf) for opt in constrained_options if (0 if opt.get('stock', 0) >= qty_needed else opt.get('lead_time', np.inf)) != np.inf]
+    
                     min_viable_cost = min(constrained_costs) if constrained_costs else np.inf
                     max_viable_cost = max(constrained_costs) if constrained_costs else np.inf
-                    min_viable_lt = min(constrained_effective_lts) if constrained_effective_lts else 0 # Min effective LT can be 0
+                    min_viable_lt = min(constrained_effective_lts) if constrained_effective_lts else 0
                     max_viable_lt = max(constrained_effective_lts) if constrained_effective_lts else 0
-
+    
                     cost_range = (max_viable_cost - min_viable_cost) if max_viable_cost > min_viable_cost else 1.0
                     lead_range = (max_viable_lt - min_viable_lt) if max_viable_lt > min_viable_lt else 1.0
-                    if cost_range < 1e-9: cost_range = 1.0 # Avoid division by zero if all costs are same
-                    if lead_range < 1e-9: lead_range = 1.0 # Avoid division by zero if all leads are same
-
-                    # Calculate score for each constrained option
+                    if cost_range < 1e-9: cost_range = 1.0
+                    if lead_range < 1e-9: lead_range = 1.0
+    
                     for viable_opt in constrained_options:
-                        cost = safe_float(viable_opt.get('cost')) # Known to be finite
+                        cost = safe_float(viable_opt.get('cost'))
                         stock = viable_opt.get('stock', 0)
                         lead_time = viable_opt.get('lead_time', np.inf)
-                        effective_lead_time = 0 if stock >= qty_needed else lead_time # Known to be finite and <= target_lt_days
-
-                        # Normalize Cost (0 = best = min_viable_cost, 1 = worst = max_viable_cost)
+                        effective_lead_time = 0 if stock >= qty_needed else lead_time
+    
                         norm_cost = (cost - min_viable_cost) / cost_range if cost_range > 1e-9 else 0
-
-                        # Normalize Lead Time (0 = best = min_viable_lt, 1 = worst = max_viable_lt)
                         norm_lead = (effective_lead_time - min_viable_lt) / lead_range if lead_range > 1e-9 else 0
-
-                        # Calculate weighted score (lower is better)
                         score = (cost_weight * norm_cost) + (lead_weight * norm_lead)
-
-                        # Penalties (add to score, making it worse)
-                        if viable_opt.get('discontinued') or viable_opt.get('eol'): score += 0.5 # Penalty for discontinued/EOL
-                        if stock < qty_needed: score += 0.1 # Slight penalty if not fully in stock (even if LT is good)
-
-                        # Store score in option for potential debugging/reporting
+    
+                        if viable_opt.get('discontinued') or viable_opt.get('eol'): score += 0.5
+                        if stock < qty_needed: score += 0.1
+    
                         viable_opt['_temp_score'] = score
-
-                        # Update best score and chosen option reference
                         if score < best_score:
                             best_score = score
-                            chosen_option_opt_ref = viable_opt # Keep reference to the original option dict
-
+                            chosen_option_opt_ref = viable_opt
+    
                     if chosen_option_opt_ref:
                         opt_notes = f"Score: {best_score:.3f}"
-                        # Clean up temporary score key
                         if '_temp_score' in chosen_option_opt_ref: del chosen_option_opt_ref['_temp_score']
-                        for opt in constrained_options: # Clean up all
+                        for opt in constrained_options:
                             if '_temp_score' in opt: del opt['_temp_score']
                     else:
-                        # This case should ideally not happen if constrained_options is not empty
                         logger.error(f"Optimized Strategy: LOGIC ERROR - No option selected for {bom_pn} from {len(constrained_options)} constrained options.")
                         part_invalid_optimized = True
                         opt_notes = "Error during scoring"
-                        # Attempt fallback below
-
-                # --- Handle No Constrained Options or Fallback ---
-                if not chosen_option_opt_ref: # Covers empty constrained_options or scoring error
-                    if not part_invalid_optimized: # Only log warning if not already invalid from base cost issue
-                         logger.warning(f"Optimized Strategy: No option met constraints or scoring failed for {bom_pn}.")
-
-                    # Fallback logic: Prefer Strict, then Fastest if Strict LT is too long
+    
+                if not chosen_option_opt_ref:
+                    logger.warning(f"Optimized Strategy: No option met constraints or scoring failed for {bom_pn}.")
                     strict_fallback_entry = strict_lowest_cost_strategy.get(bom_pn)
                     strict_fallback_valid = (strict_fallback_entry and safe_float(strict_fallback_entry.get('cost'), default=np.inf) != np.inf)
-
+    
                     fastest_fallback_entry = fastest_strategy.get(bom_pn)
                     fastest_fallback_valid = (fastest_fallback_entry and safe_float(fastest_fallback_entry.get('cost'), default=np.inf) != np.inf and safe_float(fastest_fallback_entry.get('lead_time'), default=np.inf) != np.inf)
-
+    
                     chosen_fallback = None
                     fallback_note = ""
-
+    
                     if strict_fallback_valid:
                         strict_fallback_lt = get_actual_lead(strict_lowest_cost_strategy, bom_pn, qty_needed)
-                        # Use strict fallback unless its lead time is significantly worse than target AND a faster option exists
-                        # Define "significantly worse" - e.g., > 1.5x target LT OR > target LT + 14 days? Let's use 1.5x for now.
                         is_strict_too_slow = (strict_fallback_lt > target_lt_days * 1.5) and (target_lt_days > 0)
-
+    
                         if is_strict_too_slow and fastest_fallback_valid:
-                            chosen_fallback = fastest_fallback_entry # Reference the *entry* dict
+                            chosen_fallback = fastest_fallback_entry
                             fallback_note = "Constraints Failed. Fallback to Fastest (Strict LT too long)."
                         else:
-                            chosen_fallback = strict_fallback_entry # Reference the *entry* dict
+                            chosen_fallback = strict_fallback_entry
                             fallback_note = "Constraints Failed. Fallback to Strict."
                     elif fastest_fallback_valid:
-                        # Strict failed, but fastest is available
-                        chosen_fallback = fastest_fallback_entry # Reference the *entry* dict
+                        chosen_fallback = fastest_fallback_entry
                         fallback_note = "Constraints Failed & Strict Invalid. Fallback to Fastest."
                     else:
-                        # Neither strict nor fastest provide a valid fallback
-                         fallback_note = "Constraints Failed. No valid fallback found."
-                         part_invalid_optimized = True # Mark part as invalid
-
+                        fallback_note = "Constraints Failed. No valid fallback found."
+                        part_invalid_optimized = True
+    
                     if chosen_fallback:
-                        # We need the original option data, not the processed entry for storing
-                        # This is tricky because the fallback entries are already processed.
-                        # We'll store the processed entry, but this might lack some original detail if needed later.
-                        # For aggregation, using the processed entry is sufficient.
-                        optimized_strategy[bom_pn] = chosen_fallback # Store the chosen fallback entry
+                        optimized_strategy[bom_pn] = chosen_fallback
                         optimized_strategy[bom_pn]['notes'] = f"{fallback_note}; {optimized_strategy[bom_pn].get('notes', '')}".strip('; ')
                         optimized_strategy[bom_pn]['optimized_strategy_score'] = 'N/A (Fallback)'
-                        # We need to check if this chosen fallback itself is valid for aggregation
                         cost_to_add_fallback = safe_float(chosen_fallback.get('cost'), default=np.inf)
                         if cost_to_add_fallback == np.inf: part_invalid_optimized = True
                     else:
-                        # Store placeholder if no fallback worked
                         optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': fallback_note})
                         part_invalid_optimized = True
-
-                    best_score = np.nan # Indicate fallback or failure
-
-            # --- Store Optimized Strategy Choice (if not handled by fallback) ---
+    
+                    best_score = np.nan
+    
             if chosen_option_opt_ref and not part_invalid_optimized:
-                # We successfully chose an option via scoring, not fallback
-                # Create the entry from the chosen reference option
                 opt_entry = self.create_strategy_entry(chosen_option_opt_ref)
                 opt_entry['optimized_strategy_score'] = f"{best_score:.3f}" if pd.notna(best_score) else "N/A"
                 opt_entry['notes'] = f"{opt_notes}; {opt_entry.get('notes', '')}".strip('; ')
                 optimized_strategy[bom_pn] = opt_entry
             elif not part_invalid_optimized and bom_pn not in optimized_strategy:
-                 # This case means we got here without choosing an option *or* hitting fallback
-                 # Should not happen if logic above is correct, but handle defensively
-                 logger.error(f"Optimized Strategy: Reached end for {bom_pn} without selection or fallback decision.")
-                 optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': 'N/A (Processing Error)'})
-                 part_invalid_optimized = True
-
-
-            # --- Aggregate Optimized Cost and Lead Time (if part is valid for optimized) ---
-            if not invalid_optimized: # Only check global flag (already potentially set during opt calc)
-                 # Get the chosen optimized option for this part
-                 chosen_opt_entry = optimized_strategy.get(bom_pn)
-                 if isinstance(chosen_opt_entry, dict): # Check if it's a valid entry
-                     cost_to_add_opt = safe_float(chosen_opt_entry.get('cost'), default=np.inf)
-                     if cost_to_add_opt != np.inf:
-                         total_bom_cost_optimized += cost_to_add_opt
-                         actual_lead_opt = get_actual_lead(optimized_strategy, bom_pn, qty_needed)
-                         if actual_lead_opt == np.inf: max_lead_time_optimized = np.inf
-                         elif max_lead_time_optimized != np.inf: max_lead_time_optimized = max(max_lead_time_optimized, actual_lead_opt)
-                     else:
-                         # If the chosen optimized cost is INF, invalidate overall
-                         if not invalid_optimized: # Avoid redundant logs
-                            logger.warning(f"Optimized strategy for {bom_pn} resulted in INF cost. Invalidating overall Optimized strategy.")
-                         invalid_optimized = True
-                 else:
-                      # If the entry for this part in optimized_strategy is missing or not a dict (shouldn't happen with placeholders)
-                      if not invalid_optimized: logger.warning(f"Missing or invalid optimized strategy entry for {bom_pn}. Invalidating overall Optimized strategy.")
-                      invalid_optimized = True
-            logger.debug(f"Part {bom_pn} - Post-Optimized Agg: invalid_optimized = {invalid_optimized}")
-
+                logger.error(f"Optimized Strategy: Reached end for {bom_pn} without selection or fallback decision.")
+                optimized_strategy[bom_pn] = self.create_strategy_entry({'notes': 'N/A (Processing Error)'})
+                part_invalid_optimized = True
+    
+            if not invalid_optimized and not part_invalid_optimized:
+                chosen_opt_entry = optimized_strategy.get(bom_pn)
+                if isinstance(chosen_opt_entry, dict):
+                    cost_to_add_opt = safe_float(chosen_opt_entry.get('cost'), default=np.inf)
+                    if cost_to_add_opt != np.inf:
+                        total_bom_cost_optimized += cost_to_add_opt
+                        actual_lead_opt = get_actual_lead(optimized_strategy, bom_pn, qty_needed)
+                        if actual_lead_opt != np.inf:
+                            max_lead_time_optimized = max(max_lead_time_optimized, actual_lead_opt)
+                        optimized_parts_count += 1
+                    else:
+                        logger.warning(f"Optimized strategy for {bom_pn} resulted in INF cost. Invalidating.")
+                        invalid_optimized = True
+                else:
+                    logger.warning(f"Missing or invalid optimized strategy entry for {bom_pn}. Invalidating.")
+                    invalid_optimized = True
+            logger.debug(f"Part {bom_pn} - Post-Optimized Agg: invalid_optimized = {invalid_optimized}, Total Cost = {total_bom_cost_optimized}, Max LT = {max_lead_time_optimized}")
+    
             # --- Near Miss Calculation ---
             part_near_misses = {}
-            # Only calculate near misses if optimized didn't fail fundamentally (i.e., base cost was valid)
-            # AND the optimized strategy didn't ultimately fail for this part.
             if not part_invalid_min and not part_invalid_optimized:
-                baseline_cost = part_min_cost_optimized # Defined earlier
-
-                # Identify options that were valid overall but failed the *optimized constraints*
+                baseline_cost = part_min_cost_optimized
                 options_that_failed_constraints = []
                 for opt in valid_options_for_calc:
-                     # Check if it was NOT chosen AND not in the constrained list (if one was built)
-                     is_chosen_opt = (chosen_option_opt_ref is not None and opt == chosen_option_opt_ref)
-                     was_constrained = opt in constrained_options # Assumes constrained_options holds refs correctly
-
-                     if not is_chosen_opt and not was_constrained:
-                         # Now re-evaluate WHY it failed constraints (or wasn't considered)
-                         cost = safe_float(opt.get('cost'), default=np.inf)
-                         lead_time = opt.get('lead_time', np.inf)
-                         stock = opt.get('stock', 0)
-                         effective_lead_time = 0 if stock >= qty_needed else lead_time
-
-                         # Basic check: must have finite cost & effective LT to be a near miss candidate
-                         if cost == np.inf or effective_lead_time == np.inf: continue
-
-                         # Reason 1: Failed LT constraint?
-                         failed_lt = effective_lead_time > target_lt_days
-
-                         # Reason 2: Failed Premium constraint?
-                         cost_premium_pct_calc = 0.0
-                         if baseline_cost > 1e-9: cost_premium_pct_calc = ((cost - baseline_cost) / baseline_cost * 100.0)
-                         elif cost > 1e-9: cost_premium_pct_calc = np.inf
-                         failed_prem = cost_premium_pct_calc > max_prem_pct
-
-                         # Add to list if it failed one or both (and has valid cost/eff_lt)
-                         if failed_lt or failed_prem:
+                    is_chosen_opt = (chosen_option_opt_ref is not None and opt == chosen_option_opt_ref)
+                    was_constrained = opt in constrained_options
+                    if not is_chosen_opt and not was_constrained:
+                        cost = safe_float(opt.get('cost'), default=np.inf)
+                        lead_time = opt.get('lead_time', np.inf)
+                        stock = opt.get('stock', 0)
+                        effective_lead_time = 0 if stock >= qty_needed else lead_time
+                        if cost == np.inf or effective_lead_time == np.inf: continue
+    
+                        failed_lt = effective_lead_time > target_lt_days
+                        cost_premium_pct_calc = 0.0
+                        if baseline_cost > 1e-9: cost_premium_pct_calc = ((cost - baseline_cost) / baseline_cost * 100.0)
+                        elif cost > 1e-9: cost_premium_pct_calc = np.inf
+                        failed_prem = cost_premium_pct_calc > max_prem_pct
+    
+                        if failed_lt or failed_prem:
                             options_that_failed_constraints.append({
-                                'option_ref': opt, # Keep ref to original option
+                                'option_ref': opt,
                                 'cost': cost,
                                 'effective_lead_time': effective_lead_time,
                                 'premium_pct': cost_premium_pct_calc,
                                 'failed_lt': failed_lt,
                                 'failed_prem': failed_prem
                             })
-
+    
                 if options_that_failed_constraints:
-                    # Find "Slightly Over LT" miss:
-                    # Must have failed LT, but passed Premium. Sort by how much LT is over, then cost.
                     over_lt_candidates = [
                         cand for cand in options_that_failed_constraints
                         if cand['failed_lt'] and not cand['failed_prem']
                     ]
                     if over_lt_candidates:
                         over_lt_candidates.sort(key=lambda x: (
-                            x['effective_lead_time'] - target_lt_days, # How much over LT (primary)
-                            x['cost'] # Cost (secondary)
+                            x['effective_lead_time'] - target_lt_days,
+                            x['cost']
                         ))
                         best_over_lt_cand = over_lt_candidates[0]
                         over_by_days = best_over_lt_cand['effective_lead_time'] - target_lt_days
-                        # Define "slightly over" - e.g., within 14 days?
                         if pd.notna(over_by_days) and over_by_days > 0 and over_by_days <= 14:
                             part_near_misses['slightly_over_lt'] = {
                                 'option': self.create_strategy_entry(best_over_lt_cand['option_ref']),
                                 'over_by_days': round(over_by_days, 1)
                             }
-
-                    # Find "Slightly Over Cost" miss:
-                    # Must have failed Premium, but passed LT. Sort by how much Premium is over, then LT.
+    
                     over_cost_candidates = [
                         cand for cand in options_that_failed_constraints
                         if cand['failed_prem'] and not cand['failed_lt']
                     ]
                     if over_cost_candidates:
-                         over_cost_candidates.sort(key=lambda x: (
-                            x['premium_pct'] - max_prem_pct, # How much over premium % (primary)
-                            x['effective_lead_time'] # Effective LT (secondary)
-                         ))
-                         best_over_cost_cand = over_cost_candidates[0]
-                         over_by_pct = best_over_cost_cand['premium_pct'] - max_prem_pct
-                         # Define "slightly over" - e.g., within 5%?
-                         if pd.notna(over_by_pct) and over_by_pct > 0 and over_by_pct <= 5.0:
-                             part_near_misses['slightly_over_cost'] = {
-                                 'option': self.create_strategy_entry(best_over_cost_cand['option_ref']),
-                                 'over_by_pct': round(over_by_pct, 2)
-                             }
-
+                        over_cost_candidates.sort(key=lambda x: (
+                            x['premium_pct'] - max_prem_pct,
+                            x['effective_lead_time']
+                        ))
+                        best_over_cost_cand = over_cost_candidates[0]
+                        over_by_pct = best_over_cost_cand['premium_pct'] - max_prem_pct
+                        if pd.notna(over_by_pct) and over_by_pct > 0 and over_by_pct <= 5.0:
+                            part_near_misses['slightly_over_cost'] = {
+                                'option': self.create_strategy_entry(best_over_cost_cand['option_ref']),
+                                'over_by_pct': round(over_by_pct, 2)
+                            }
+    
             if part_near_misses:
                 near_miss_info[bom_pn] = part_near_misses
-
-
+    
             # --- Check Stock Availability & Acquisition Time ---
-            # This determines if *any* combination of stock covers the need, and the minimum time if not.
-            # It's independent of the specific strategies calculated above.
-            part_acquire_time = 0 # Assume 0 if stock covers
+            part_acquire_time = 0
             total_stock_for_part = sum(safe_float(opt.get('stock'), default=0) for opt in valid_options_for_calc if safe_float(opt.get('stock'), default=0) > 0)
-
             part_can_be_sourced_from_stock = (total_stock_for_part >= qty_needed)
-
+    
             if part_can_be_sourced_from_stock:
                 parts_with_stock_avail += 1
-                part_acquire_time = 0 # Can get immediately from combined stock
+                part_acquire_time = 0
             else:
-                clear_to_build_stock_only = False # Cannot build from stock only if this part is short
-                # Find the minimum finite lead time among ALL valid options for this part
+                clear_to_build_stock_only = False
                 min_finite_lead_overall = np.inf
                 for opt in valid_options_for_calc:
-                    lt = opt.get('lead_time', np.inf) # Already pre-processed
+                    lt = opt.get('lead_time', np.inf)
                     if lt != np.inf:
                         min_finite_lead_overall = min(min_finite_lead_overall, lt)
-
+    
                 stock_gap_note = f"{bom_pn} (Need:{qty_needed}, Have:{total_stock_for_part:.0f}"
                 if min_finite_lead_overall != np.inf:
                     stock_gap_note += f", Min LT:{min_finite_lead_overall:.0f}d)"
                     part_acquire_time = min_finite_lead_overall
                 else:
                     stock_gap_note += ", No Finite LT Found)"
-                    part_acquire_time = np.inf # Cannot acquire if no finite LT exists
-
+                    part_acquire_time = np.inf
+    
                 stock_gap_parts.append(stock_gap_note)
-
-
-            # Update overall time needed (max of individual part acquire times)
-            if part_acquire_time == np.inf:
-                time_to_acquire_all_parts = np.inf # If any part is impossible, total time is infinite
-            elif time_to_acquire_all_parts != np.inf:
+    
+            if part_acquire_time != np.inf:
                 time_to_acquire_all_parts = max(time_to_acquire_all_parts, float(part_acquire_time))
 
+            total_active_parts_considered += 1
+            part_has_sufficient_stock_option = False
+            for opt in valid_options_for_calc: # Use the list already filtered for valid options
+                 if opt.get('stock', 0) >= qty_needed:
+                     part_has_sufficient_stock_option = True
+                     break # Found at least one, no need to check others for this part
+
+            if part_has_sufficient_stock_option:
+                parts_with_sufficient_single_source_stock += 1 # Increment the new counter
+            else:
+                clear_to_build_stock_only = False # Set flag to False if this part fails
+    
         # --- End of Part Loop ---
 
-        # --- Handle edge case: If ALL parts were invalid from the start --- 
-        valid_parts_processed = total_parts_analyzed - len(invalid_parts_list) 
-        
+        # --- Correctly Count Parts Based on GUI Entries ---
+        gui_entries = self.analysis_results.get("gui_entries", [])
+        total_parts_in_bom = len(gui_entries)
+
+        # Categorize parts based on their status and notes
+        invalid_qty_parts = [entry.get("PartNumber") for entry in gui_entries if entry.get("Notes") == "Invalid quantity"]
+        eol_discontinued_parts = [entry.get("PartNumber") for entry in gui_entries if entry.get("Status") in ["EOL", "Discontinued"]]
+        unknown_parts = [entry.get("PartNumber") for entry in gui_entries if entry.get("Status") == "Unknown"]
+        if 'active_parts' not in locals():
+            active_parts = [entry.get("PartNumber") for entry in gui_entries if entry.get("Status") == "Active"]
+        final_denominator_count = len(active_parts)
+
+        # Handle edge case where no active parts exist
+        if final_denominator_count == 0:
+             clear_to_build_stock_only = False # Cannot build if no active parts
+             parts_with_sufficient_single_source_stock = 0
+    
+        # --- Adjust Counts for Ignored Parts ---
+        if self.analysis_results.get("gui_entries"):
+            for entry in self.analysis_results["gui_entries"]:
+                status = entry.get("Status")
+                bom_pn = entry.get("PartNumber", "Unknown")
+                if status in ["EOL", "Discontinued"]:
+                    ignored_parts_list.append(f"{bom_pn} ({status})")
+                elif status == "Unknown":
+                    unknown_parts_list.append(f"{bom_pn} ({status})")
+    
+        valid_parts_processed = total_parts_analyzed - len(invalid_parts_list) - len(ignored_parts_list) - len(unknown_parts_list)
+    
         if valid_parts_processed <= 0 and total_parts_analyzed > 0:
-            logger.warning("All parts in the BOM were invalid or had no valid data. Setting all totals to N/A.")       
-            # Ensure all aggregates are marked as invalid/NaN/Inf <<< CORRECTLY INDENTED HERE
+            logger.warning("All parts were invalid, ignored, or unknown. Setting all totals to N/A.")
             total_bom_cost_strict_min = total_bom_cost_min = total_bom_cost_max = total_bom_cost_fastest = np.nan
             total_bom_cost_optimized = total_bom_cost_in_stock = total_bom_cost_with_lt = np.nan
             max_lead_time_strict_min = max_lead_time_min = max_lead_time_fastest = np.inf
             max_lead_time_optimized = max_lead_time_with_lt = np.inf
-            max_lead_time_in_stock = 0 # Stays 0
-            # Force all strategies to be invalid if *no* parts were processable
+            max_lead_time_in_stock = 0
             invalid_strict_min = invalid_min = invalid_max = invalid_fastest = invalid_optimized = invalid_in_stock = invalid_with_lt = True
-        
-        # --- Finalize aggregates ---
-        # If any part caused a strategy to be invalid, set the total cost to NaN and LT to Inf
-        if invalid_strict_min:
+    
+        # --- Finalize Aggregates ---
+        if invalid_strict_min or strict_parts_count == 0:
             total_bom_cost_strict_min = np.nan
             max_lead_time_strict_min = np.inf
-        # If not invalid, cost/LT remain as aggregated (could be 0.0 / 0)
-
-        if invalid_min:
+        elif strict_parts_count > 0 and max_lead_time_strict_min == 0:
+            logger.debug(f"Strict strategy: All {strict_parts_count} parts in stock, confirming max LT = 0")
+            max_lead_time_strict_min = 0
+    
+        if invalid_min or min_parts_count == 0:
             total_bom_cost_min = np.nan
             max_lead_time_min = np.inf
-        # If not invalid, cost/LT remain as aggregated
-
-        if invalid_max: # Max is invalid if any processable part had zero cost options
+        elif min_parts_count > 0 and max_lead_time_min == 0:
+            logger.debug(f"MinBase strategy: All {min_parts_count} parts in stock, confirming max LT = 0")
+            max_lead_time_min = 0
+    
+        if invalid_max or max_cost_parts_count == 0:
             total_bom_cost_max = np.nan
-        # If not invalid, cost remains as aggregated
-
-        if invalid_fastest:
+    
+        if invalid_fastest or fastest_parts_count == 0:
             total_bom_cost_fastest = np.nan
             max_lead_time_fastest = np.inf
-        # If not invalid, cost/LT remain as aggregated
-
-        if invalid_optimized:
+        elif fastest_parts_count > 0 and max_lead_time_fastest == 0:
+            logger.debug(f"Fastest strategy: All {fastest_parts_count} parts in stock, confirming max LT = 0")
+            max_lead_time_fastest = 0
+    
+        if invalid_optimized or optimized_parts_count == 0:
             total_bom_cost_optimized = np.nan
             max_lead_time_optimized = np.inf
-        # If not invalid, cost/LT remain as aggregated
-
-        # In Stock: Special case - LT is always 0. Cost is NaN only if flag is set.
-        if invalid_in_stock:
+        elif optimized_parts_count > 0 and max_lead_time_optimized == 0:
+            logger.debug(f"Optimized strategy: All {optimized_parts_count} parts in stock, confirming max LT = 0")
+            max_lead_time_optimized = 0
+    
+        if invalid_in_stock or in_stock_parts_count == 0:
             total_bom_cost_in_stock = np.nan
-        max_lead_time_in_stock = 0 # Always 0 conceptually
-
-        if invalid_with_lt:
+        max_lead_time_in_stock = 0
+    
+        if invalid_with_lt or with_lt_parts_count == 0:
             total_bom_cost_with_lt = np.nan
             max_lead_time_with_lt = np.inf
-        # If not invalid, cost/LT remain as aggregated
-
-        # --- Store final strategies for export ---
+        elif with_lt_parts_count > 0 and max_lead_time_with_lt == 0:
+            logger.debug(f"With LT strategy: All {with_lt_parts_count} parts in stock, confirming max LT = 0")
+            max_lead_time_with_lt = 0
+    
+        # --- Store Strategies for Export ---
         self.strategies_for_export = {
-             "Strict Lowest Cost": strict_lowest_cost_strategy,
-             "Fastest": fastest_strategy,
-             "Optimized Strategy": optimized_strategy,
-             "Lowest Cost In Stock": in_stock_strategy,
-             "Lowest Cost with Lead Time": with_lt_strategy,
-             "Baseline Lowest Cost": lowest_cost_strategy,
+            "Strict Lowest Cost": strict_lowest_cost_strategy,
+            "Fastest": fastest_strategy,
+            "Optimized Strategy": optimized_strategy,
+            "Lowest Cost In Stock": in_stock_strategy,
+            "Lowest Cost with Lead Time": with_lt_strategy,
+            "Baseline Lowest Cost": lowest_cost_strategy,
         }
         self.analysis_results['near_miss_info'] = near_miss_info
-
-        # Logging final status (optional, good for debugging)
-        final_invalid_flags = {
-            "Strict": pd.isna(total_bom_cost_strict_min), # Check final state
-            "MinBase": pd.isna(total_bom_cost_min),
-            "Max": pd.isna(total_bom_cost_max),
-            "Fastest": pd.isna(total_bom_cost_fastest),
-            "Optimized": pd.isna(total_bom_cost_optimized),
-            "InStock": pd.isna(total_bom_cost_in_stock),
-            "WithLT": pd.isna(total_bom_cost_with_lt),
-        }
-        logger.debug(f"Final Strategy Status (Cost NaN?): {final_invalid_flags}")
-
-
+    
+        logger.debug(f"Final Strategy Status (Cost NaN?): Strict={pd.isna(total_bom_cost_strict_min)}, MinBase={pd.isna(total_bom_cost_min)}, Max={pd.isna(total_bom_cost_max)}, Fastest={pd.isna(total_bom_cost_fastest)}, Optimized={pd.isna(total_bom_cost_optimized)}, InStock={pd.isna(total_bom_cost_in_stock)}, WithLT={pd.isna(total_bom_cost_with_lt)}")
+    
         # --- Format Summary Data for GUI Table ---
         def format_num(val, precision=2, suffix="", nan_inf_placeholder="N/A"):
             if pd.isna(val) or val == np.inf or val == -np.inf:
                 return nan_inf_placeholder
             try:
-                # Handle potential non-numeric types safely before formatting
                 numeric_val = float(val)
                 return f"{numeric_val:.{precision}f}{suffix}"
             except (ValueError, TypeError):
                 return nan_inf_placeholder
-
-
-        # Calculate how many valid parts exist (excluding those with Invalid Qty or No Valid Data)
-        valid_parts_count = total_parts_analyzed - len(invalid_parts_list)
-        # Ensure parts_with_stock_avail doesn't exceed valid_parts_count
+    
+        valid_parts_count = total_parts_analyzed - len(invalid_parts_list) - len(ignored_parts_list) - len(unknown_parts_list)
         parts_with_stock_avail = min(parts_with_stock_avail, valid_parts_count) if valid_parts_count >= 0 else 0
+        total_parts_str = f"{total_parts_analyzed}"
         valid_parts_str = f"{valid_parts_count}" if valid_parts_count >= 0 else "0"
-
+    
         summary_list = [
-            ("Total Parts in BOM", f"{total_parts_analyzed}"),
-            ("Parts Ignored (Invalid Qty/Data)", f"{len(invalid_parts_list)}" if invalid_parts_list else "0"),
-            ("Immediate Kit Possible (Combined Stock)", f"{clear_to_build_stock_only} ({parts_with_stock_avail}/{valid_parts_str} valid parts have combined stock)"),
+            ("Total Parts in BOM", str(total_parts_in_bom)),
+            ("Parts Ignored (Invalid Qty/Data)", str(len(invalid_qty_parts))),
+            ("Parts Ignored (EOL/Discontinued)", str(len(eol_discontinued_parts))),
+            ("Parts Ignored (Unknown)", str(len(unknown_parts))),
+            ("Parts Used in Calculations", f"{final_denominator_count}"),
+            ("Immediate Kit Possible (Single Source Stock)", f"{clear_to_build_stock_only} ({parts_with_sufficient_single_source_stock} of {final_denominator_count} active parts meetable from stock)"),
             ("Est. Time to Full Kit (Days)", format_num(time_to_acquire_all_parts, 0)),
-            ("Parts Requiring Lead Time Buys", "; ".join(stock_gap_parts[:5]) + ("..." if len(stock_gap_parts) > 5 else "") if stock_gap_parts else "None"),
+            ("Parts Requiring Lead Time Buys", "; ".join(stock_gap_parts) if stock_gap_parts else "None"),
             ("Potential Cost Range ($)", f"${format_num(total_bom_cost_min)} / ${format_num(total_bom_cost_max)}"),
             ("Strict Lowest Cost / LT ($ / Days)", f"${format_num(total_bom_cost_strict_min)} / {format_num(max_lead_time_strict_min, 0, 'd')}"),
-            ("Lowest Cost In Stock / LT ($ / Days)", f"${format_num(total_bom_cost_in_stock)} / {format_num(max_lead_time_in_stock, 0, 'd')}"), # LT is always 0 if valid
+            ("Lowest Cost In Stock / LT ($ / Days)", f"${format_num(total_bom_cost_in_stock)} / {format_num(max_lead_time_in_stock, 0, 'd')}"),
             ("Lowest Cost w/ LT / LT ($ / Days)", f"${format_num(total_bom_cost_with_lt)} / {format_num(max_lead_time_with_lt, 0, 'd')}"),
             ("Fastest Strategy / LT ($ / Days)", f"${format_num(total_bom_cost_fastest)} / {format_num(max_lead_time_fastest, 0, 'd')}"),
             ("Optimized Strategy / LT ($ / Days)", f"{'$'+format_num(total_bom_cost_optimized) if not invalid_optimized else 'N/A'} / {format_num(max_lead_time_optimized, 0, 'd')}{' (Fallback/Invalid)' if invalid_optimized else ''}"),
         ]
+    
+        # Store detailed lists for popup display
+        self.summary_details = {}
         if invalid_parts_list:
-             summary_list.append(("Ignored Part Details", "; ".join(invalid_parts_list[:5]) + ("..." if len(invalid_parts_list) > 5 else "")))
-
-
+            summary_list.append(("Ignored Part Details (Invalid)", f"{len(invalid_parts_list)} parts excluded"))
+            self.summary_details["Ignored Part Details (Invalid)"] = invalid_parts_list
+        if ignored_parts_list:
+            summary_list.append(("Ignored Part Details (EOL/Discontinued)", f"{len(ignored_parts_list)} parts excluded"))
+            self.summary_details["Ignored Part Details (EOL/Discontinued)"] = ignored_parts_list
+        if unknown_parts_list:
+            summary_list.append(("Ignored Part Details (Unknown)", f"{len(unknown_parts_list)} parts excluded"))
+            self.summary_details["Ignored Part Details (Unknown)"] = unknown_parts_list
+    
         # --- Tariff Calculation ---
         total_tariff_cost = 0.0
         calculated_bom_cost_for_tariff = 0.0
@@ -5340,42 +5516,45 @@ class BOMAnalyzerApp:
         chosen_strategy_for_tariff_calc = {}
         tariff_basis_name = "N/A"
         strategy_valid_for_tariff = False
-
-        # Prioritize Optimized, then Strict for tariff calculation basis
-        if not invalid_optimized:
+    
+        if not invalid_optimized and optimized_parts_count > 0:
             chosen_strategy_for_tariff_calc = optimized_strategy
             tariff_basis_name = "Optimized"
             strategy_valid_for_tariff = True
-        elif not invalid_strict_min:
+        elif not invalid_strict_min and strict_parts_count > 0:
             chosen_strategy_for_tariff_calc = strict_lowest_cost_strategy
             tariff_basis_name = "Strict Lowest Cost"
             strategy_valid_for_tariff = True
-
+    
         if strategy_valid_for_tariff:
-             for bom_pn, chosen_option in chosen_strategy_for_tariff_calc.items():
-                 # Ensure chosen_option is a dictionary and has cost
-                 if isinstance(chosen_option, dict):
-                     part_cost_basis = safe_float(chosen_option.get('cost'), default=np.inf)
-                     if part_cost_basis != np.inf:
-                         calculated_bom_cost_for_tariff += part_cost_basis
-                         tariff_rate = safe_float(chosen_option.get('tariff_rate'), default=0.0) # Default tariff to 0 if missing/invalid
-                         if tariff_rate > 0:
-                             total_tariff_cost += part_cost_basis * tariff_rate
-
-             if calculated_bom_cost_for_tariff > 1e-9:
-                 total_tariff_pct = (total_tariff_cost / calculated_bom_cost_for_tariff * 100)
-             else:
-                  # Avoid NaN if total cost is zero, percentage is 0
-                  total_tariff_pct = 0.0
-
-             summary_list.append((f"Est. Total Tariff Cost ({tariff_basis_name})", f"${format_num(total_tariff_cost)}"))
-             summary_list.append((f"Est. Total Tariff % ({tariff_basis_name})", f"{format_num(total_tariff_pct)}%"))
+            for bom_pn, chosen_option in chosen_strategy_for_tariff_calc.items():
+                if isinstance(chosen_option, dict):
+                    part_cost_basis = safe_float(chosen_option.get('cost'), default=np.inf)
+                    if part_cost_basis != np.inf:
+                        calculated_bom_cost_for_tariff += part_cost_basis
+                        tariff_rate = safe_float(chosen_option.get('tariff_rate'), default=0.0)
+                        if tariff_rate > 0:
+                            total_tariff_cost += part_cost_basis * tariff_rate
+    
+            if calculated_bom_cost_for_tariff > 1e-9:
+                total_tariff_pct = (total_tariff_cost / calculated_bom_cost_for_tariff * 100)
+            else:
+                total_tariff_pct = 0.0
+    
+            summary_list.append((f"Est. Total Tariff Cost ({tariff_basis_name})", f"${format_num(total_tariff_cost)}"))
+            summary_list.append((f"Est. Total Tariff % ({tariff_basis_name})", f"{format_num(total_tariff_pct)}%"))
         else:
-             # Both Optimized and Strict strategies were invalid
-             summary_list.append(("Est. Total Tariff Cost (N/A)", "N/A"))
-             summary_list.append(("Est. Total Tariff % (N/A)", "N/A"))
+            summary_list.append(("Est. Total Tariff Cost (N/A)", "N/A"))
+            summary_list.append(("Est. Total Tariff % (N/A)", "N/A"))
 
-
+        # --- Log Ignored Parts Details ---
+        if invalid_qty_parts:
+            logger.info(f"Invalid Qty/Data Parts: {invalid_qty_parts}")
+        if eol_discontinued_parts:
+            logger.info(f"EOL/Discontinued Parts: {eol_discontinued_parts}")
+        if unknown_parts:
+            logger.info(f"Unknown Parts: {unknown_parts}")
+        
         logger.info("Summary metrics calculation complete.")
         return summary_list
 
@@ -5840,6 +6019,7 @@ class BOMAnalyzerApp:
     def generate_ai_summary_thread(self):
         """Thread function to call OpenAI and update the GUI."""
         logger.info("AI Summary Thread: Starting...")
+        self.update_progress_threadsafe(0, 100, "Preparing data for AI Summary...")
         try:
             # --- Extract data from analysis_results ---
             if not self.analysis_results:
@@ -5991,13 +6171,26 @@ class BOMAnalyzerApp:
 
             # === Actionable Recommendations ===
             prompt += "=== Actionable Recommendations ===\n"
-            prompt += "Provide concise, strategic recommendations for executive review, focusing on:\n"
-            prompt += "1.  **Optimal Sourcing Strategy:** Clearly recommend ONE strategy (Lowest Cost, Fastest, or Optimized) as the primary plan. Justify this based on the KPIs (cost, lead time), risk profile, and whether the Optimized strategy met constraints or used fallbacks. Quantify the choice where possible (e.g., 'Optimized saves $X but adds Y days vs. Fastest').\n"
-            prompt += "2.  **High/Moderate Risk Part Actions:** For the specific High and Moderate risk parts listed, suggest concrete next steps. Examples: Prioritize ordering, Seek second source, Qualify alternate, Increase buffer stock, Expedite options, Initiate redesign investigation (especially for EOL/sole source high risk).\n"
-            prompt += "3.  **Potential Plan B / Trade-offs:** Analyze the 'Near Miss' data. If applicable, identify specific parts where slightly relaxing the LT target OR the cost premium could yield significant benefits (e.g., large cost savings for a few extra days LT, or meeting LT by slightly exceeding cost premium). Advise if these specific trade-offs seem strategically advantageous and worth proposing as alternatives.\n"
-            prompt += "4.  **Overall Risk Mitigation:** Suggest 1-2 high-level actions based on the overall risk assessment (e.g., 'Develop secondary suppliers for sole-sourced high-risk items', 'Review buffer stock levels based on calculated lead times and stock gaps', 'Initiate value engineering for high-cost drivers').\n"
-            prompt += "5.  **Buy-Up Decisions:** Comment on any parts where the chosen strategy involves buying significantly more than needed ('Actual Qty Ordered' >> 'Total Qty Needed'). Briefly assess the cost saving vs. the inventory risk for these specific parts.\n"
+            prompt += "Provide concise, strategic recommendations for executive review. Use Markdown formatting. **CRITICAL:** Clearly highlight any parts excluded due to EOL, Discontinuation, or being Unknown/Not Found. Explicitly state that these exclusions impact the accuracy of overall metrics like 'Est. Time to Full Kit'. Use **bold red** markers like `**CRITICAL ACTION:**` or `**WARNING:**` for these high-priority issues and related recommendations.\n\n"
+            self.update_progress_threadsafe(20, 100, "Constructed prompt for AI...")
+            prompt += "Focus on:\n"
+            prompt += "1.  **Optimal Sourcing Strategy:** Recommend ONE strategy (Lowest Cost, Fastest, or Optimized) and justify it. Quantify trade-offs ($ vs. Days).\n"
 
+            prompt += "2.  **CRITICAL PART ISSUES (Highlight Urgency!):**\n"
+            prompt += "    *   Identify ALL EOL/Discontinued/Unknown parts. Use **ALL CAPS** and prefix with `CRITICAL:`. State explicitly these parts are **EXCLUDED** from overall cost/lead time calculations.\n"
+            prompt += "    *   For these critical parts, recommend **immediate actions** (e.g., `CRITICAL: Validate alternate for EOL part [MfgPN]`, `CRITICAL: Identify source for Unknown part [BOM PN]`, `CRITICAL: Initiate redesign if no alternate found for [MfgPN]`).\n"
+            prompt += "    *   Identify any other **High Risk** (Score > 6.5) Active parts. Prefix with `WARNING:`. Recommend actions (e.g., `WARNING: Secure second source for [MfgPN]`, `WARNING: Increase buffer stock for sole-source [MfgPN]`).\n"
+
+            prompt += "3.  **Schedule & Stock Risk:**\n"
+            prompt += "    *   State clearly if the 'Est. Time to Full Kit' metric is potentially **MISLEADING** because critical parts were excluded. Use **bold text**.\n"
+            prompt += "    *   If there are parts requiring lead time buys ('Stock Gap Parts'), prefix this finding with `WARNING:`. Recommend confirming lead times.\n"
+
+            prompt += "4.  **Potential Plan B / Trade-offs:** Analyze 'Near Miss' data. If applicable, highlight specific parts where minor constraint relaxation offers significant benefits.\n"
+            prompt += "5.  **Overall Risk Mitigation:** Suggest 1-2 high-level strategic actions.\n"
+            prompt += "6.  **Buy-Up Decisions:** Comment on significant over-buys in the recommended strategy.\n"
+            prompt += "7.  **Financial Summary:** Summarize recommended strategy cost/LT and estimated tariff impact.\n"
+            prompt += "**Formatting Instructions:** Use Markdown. Use **bold** for key recommendations/metrics. Use ALL CAPS and prefixes `CRITICAL:` or `WARNING:` as instructed above for high-priority issues. Use bullet points.\n\n"
+            prompt += "Keep language clear, direct, and action-oriented. Use bullet points for recommendations.\n"
             # Find parts with significant overbuy in the *chosen* strategy (assume Optimized if valid, else Lowest Cost)
             overbuy_parts = []
             chosen_strategy_for_buyup = {}
@@ -6005,7 +6198,6 @@ class BOMAnalyzerApp:
                  chosen_strategy_for_buyup = strategies.get("Optimized Strategy", {})
             elif pd.notna(summary_dict.get("Lowest Cost Strategy / LT ($ / Days)", np.nan)):
                  chosen_strategy_for_buyup = strategies.get("Lowest Cost", {})
-
             if chosen_strategy_for_buyup:
                  for bom_pn, option in chosen_strategy_for_buyup.items():
                      needed_val = option.get("total_qty_needed")
@@ -6015,41 +6207,56 @@ class BOMAnalyzerApp:
                         needed_val > 0 and ordered_val > needed_val * 1.5 and (ordered_val - needed_val) > 10:
                          mfg_pn = option.get("ManufacturerPartNumber", bom_pn)
                          overbuy_parts.append(f"{mfg_pn} (Need {needed_val}, Buy {ordered_val})")
-
             if overbuy_parts:
                  prompt += f"    *Note on Buy-Ups in Recommended Strategy: Significant over-buys for cost savings identified for: {'; '.join(overbuy_parts[:3])}{'...' if len(overbuy_parts)>3 else ''}.*\n"
-
-            prompt += "6.  **Financial Summary:** Briefly summarize the total estimated cost of the recommended strategy and compare it to alternatives if relevant (e.g., '$X premium for Y days faster delivery compared to Lowest Cost'). Include estimated tariff impact.\n"
-            prompt += "**Formatting Instructions:** Please use Markdown formatting for clarity. Use **bold text** for key recommendations, headings (e.g., `## Recommended Strategy`), and critical part numbers or metrics. Use bullet points for lists.\n\n"
-            prompt += "Keep language clear, direct, and action-oriented. Use bullet points for recommendations.\n"
-            # --- End Prompt ---
-
             logger.info("AI Summary Thread: Prompt built (with near-miss section), preparing API call.")
 
             # --- Call OpenAI ---
+            self.update_progress_threadsafe(30, 100, "Generating AI Summary with OpenAI...")
             ai_response = call_chatgpt(prompt, model="gpt-4o") # Use appropriate model
 
             if ai_response and "OpenAI" not in ai_response: # Basic check for error messages from call_chatgpt
                  logger.info(f"AI Summary Thread: Received response from OpenAI (Length: {len(ai_response)} chars).")
+                 self.update_progress_threadsafe(50, 100, "Received AI response, processing...")
             else:
                  logger.error(f"AI Summary Thread: Received error or no response from OpenAI. Response: {ai_response}")
                  ai_response = f"Error: Failed to get summary from AI.\n\nDetails: {ai_response}" # Provide error in GUI
+                 self.update_progress_threadsafe(0, 100, "Error generating AI summary.")
 
             # --- Schedule GUI Update ---
             def update_gui():
-                logger.debug("AI Summary Thread: Executing update_gui (SIMPLIFIED VERSION).")
+                logger.debug("AI Summary Thread: Executing update_gui`, `EOL`, `Unknown`) and apply pre-defined color tags to highlight them in the `ScrolledText` widget.")
                 try:
                     # Basic check - still good practice
                     if not hasattr(self, 'ai_summary_text') or not self.ai_summary_text.winfo_exists():
                         logger.error("AI Summary Text widget missing.")
                         return
 
-                    # Core update logic - similar to original concept
                     self.ai_summary_text.configure(state='normal')
                     self.ai_summary_text.delete(1.0, tk.END)
-                    self.ai_summary_text.insert(tk.END, ai_response) # ai_response is from the outer scope
+
+                    # Define keywords for tagging (case-insensitive)
+                    critical_keywords = ["critical", "eol", "discontinued", "unknown", "not found", "excluded", "invalid qty", "must replace", "redesign"]
+                    warning_keywords = ["warning", "moderate risk", "stock gap", "exceeds target", "n/a", "fallback"]
+
+                    response_lines = ai_response.splitlines() # Split into lines
+
+                    for line in response_lines:
+                        tags_to_apply = () # Tuple for tags on this line
+                        line_lower = line.lower() # Check lowercase version
+
+                        # Check for critical keywords first
+                        if any(keyword in line_lower for keyword in critical_keywords):
+                            tags_to_apply = ('critical',)
+                        # If not critical, check for warning keywords
+                        elif any(keyword in line_lower for keyword in warning_keywords):
+                            tags_to_apply = ('warning',)
+
+                        # Insert the line with or without tags
+                        self.ai_summary_text.insert(tk.END, line + "\n", tags_to_apply)
+
                     self.ai_summary_text.configure(state='disabled')
-                    logger.info("AI Summary text updated.")
+                    self.update_progress_threadsafe(70, 100, "Formatting AI Summary...")
 
                     # Tab Switching - use the CORRECT variable name for the current code
                     if hasattr(self, 'results_notebook') and self.results_notebook.winfo_exists() and \
@@ -6063,8 +6270,10 @@ class BOMAnalyzerApp:
                     # Update status using the threadsafe method
                     if "Error:" not in ai_response:
                          self.update_status_threadsafe("AI summary generated.", "success")
+                         self.update_progress_threadsafe(90, 100, "Generating AI Summary with OpenAI...")
                     else:
                          self.update_status_threadsafe("Error generating AI summary.", "error")
+                         self.update_progress_threadsafe(0, 100, "Error generating AI summary.")
 
 
                 except tk.TclError as tk_err: # Catch Tkinter errors
@@ -6085,7 +6294,28 @@ class BOMAnalyzerApp:
             # Schedule messagebox on main thread
             self.root.after(0, messagebox.showerror, "AI Summary Error", f"Failed preparing data for AI summary:\n\n{e}")
         finally:
+            def configure_tags_main_thread():
+                if hasattr(self, 'ai_summary_text') and self.ai_summary_text.winfo_exists():
+                    try:
+                        # Define critical tag (bold red)
+                        self.ai_summary_text.tag_configure("critical", foreground=self.COLOR_ERROR, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+                        # Define warning tag (bold orange)
+                        self.ai_summary_text.tag_configure("warning", foreground=self.COLOR_WARN, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+                        # Define highlight tag (yellow background - use sparingly)
+                        self.ai_summary_text.tag_configure("highlight", background="#FFFFE0") # Light yellow
+                        # Define standard bold tag (if needed, beyond AI's markdown)
+                        self.ai_summary_text.tag_configure("bold", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL, "bold"))
+                        logger.debug("AI Summary text tags configured.")
+                    except tk.TclError as tag_err:
+                        logger.error(f"Error configuring AI summary text tags: {tag_err}")
+    
+            if is_main_thread():
+                configure_tags_main_thread()
+            else:
+                 self.root.after(0, configure_tags_main_thread)
+                
             logger.info("AI Summary Thread: Finishing.")
+            self.update_progress_threadsafe(100, 100, "AI Summary Complete")
             self.running_analysis = False
             # Schedule button state update ensures it runs on the main thread
             self.root.after(0, self.validate_inputs)
@@ -6121,8 +6351,8 @@ class BOMAnalyzerApp:
                 # --- Handling for Main Parts Tree (self.tree) ---
                 if tree == self.tree and isinstance(first_item, dict):
                     if not hasattr(self, 'tree_item_data_map'): self.tree_item_data_map = {}
-                    self.tree_item_data_map.clear() # Clear map before repopulating
-
+                    self.tree_item_data_map.clear()  # Clear map before repopulating
+                
                     for i, item_dict in enumerate(data):
                         if not isinstance(item_dict, dict): continue
                         values = [str(item_dict.get(col, '')).replace('nan', 'N/A') for col in cols]
@@ -6135,10 +6365,10 @@ class BOMAnalyzerApp:
                             elif risk_score >= self.RISK_CATEGORIES['moderate'][0]: tags = ('moderate_risk',)
                             else: tags = ('low_risk',)
                         else:
-                             tags = ('na_risk',) # Tag for N/A risk score
-
+                            tags = ('na_risk',)  # Tag for N/A risk score
+                
                         item_id = tree.insert("", "end", values=values, tags=tags)
-                        self.tree_item_data_map[item_id] = item_dict # Store original dict data
+                        self.tree_item_data_map[item_id] = item_dict  # Store gui_entry in tree_item_data_map
 
                 # --- Handling for Summary Metrics Table (self.analysis_table) ---
                 elif tree == self.analysis_table and isinstance(first_item, (list, tuple)) and len(first_item) == 2:
@@ -6314,5 +6544,4 @@ if __name__ == "__main__":
             if root and root.winfo_exists():
                 try: root.destroy()
                 except: pass
-            sys.exit(1) # Exit with error code 
-    
+            sys.exit(1) # Exit with error code
