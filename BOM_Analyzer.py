@@ -564,15 +564,17 @@ class BOMAnalyzerApp:
         # --- Left Pane: Configuration ---
         self.config_frame_outer = ttk.Frame(self.main_paned_window, padding=0, width=450, style="Card.TFrame")
         self.config_frame_outer.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=(10, 5))
-        self.config_scroll_canvas = tk.Canvas(self.config_frame_outer, borderwidth=0, background=self.COLOR_FRAME_BG, highlightthickness=0)
-        self.config_scrollbar = ttk.Scrollbar(self.config_frame_outer, orient="vertical", command=self.config_scroll_canvas.yview)
-        self.config_frame = ttk.Frame(self.config_scroll_canvas, padding=(15, 15), style="InnerCard.TFrame")
-        self.config_frame.bind("<Configure>", lambda e: self.config_scroll_canvas.configure(scrollregion=self.config_scroll_canvas.bbox("all")))
-        self.config_scroll_canvas.create_window((0, 0), window=self.config_frame, anchor="nw")
-        self.config_scroll_canvas.configure(yscrollcommand=self.config_scrollbar.set)
-        self.config_scroll_canvas.pack(side="left", fill="both", expand=True); self.config_scrollbar.pack(side="right", fill="y")
+        self.config_frame = ttk.Frame(self.config_frame_outer, padding=(15, 15), style="InnerCard.TFrame") # Parent is now config_frame_outer
+        self.config_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        #self.config_scroll_canvas = tk.Canvas(self.config_frame_outer, borderwidth=0, background=self.COLOR_FRAME_BG, highlightthickness=0)
+        #self.config_scrollbar = ttk.Scrollbar(self.config_frame_outer, orient="vertical", command=self.config_scroll_canvas.yview)
+        #self.config_frame = ttk.Frame(self.config_scroll_canvas, padding=(15, 15), style="InnerCard.TFrame")
+        #self.config_frame.bind("<Configure>", lambda e: self.config_scroll_canvas.configure(scrollregion=self.config_scroll_canvas.bbox("all")))
+        #self.config_scroll_canvas.create_window((0, 0), window=self.config_frame, anchor="nw")
+        #self.config_scroll_canvas.configure(yscrollcommand=self.config_scrollbar.set)
+        #self.config_scroll_canvas.pack(side="left", fill="both", expand=True); self.config_scrollbar.pack(side="right", fill="y")
         
-        # Mouse wheel binding
+        """# Mouse wheel binding
         def _on_mousewheel_config(event):
             delta = 0
             if event.num == 4: delta = -1; # Linux scroll up
@@ -583,29 +585,57 @@ class BOMAnalyzerApp:
         self.config_frame.bind_all("<MouseWheel>", _on_mousewheel_config)
         self.config_frame.bind_all("<Button-4>", _on_mousewheel_config)
         self.config_frame.bind_all("<Button-5>", _on_mousewheel_config)
-
+        """
+        
         # --- Configuration Widgets ---
-        ttk.Label(self.config_frame, text="Configuration", style="Title.TLabel").pack(fill="x", pady=(0, 15), anchor='w')
-        # Load BOM Section
+        ttk.Label(self.config_frame, text="BOM Analyzer v1.0.0", style="Title.TLabel").pack(fill="x", pady=(0, 15), anchor='w')
+
+        instruction_label = ttk.Label(self.config_frame, text="Load BOM to Start BOM Analysis", style="Hint.TLabel", font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL,"bold", "italic")) 
+        instruction_label.pack(fill='x', anchor='w', padx=5, pady=(5, 2)) #
+
+        # Load BOM Section Frame (Container for the grid)
         load_bom_frame = ttk.Frame(self.config_frame, style="InnerCard.TFrame")
         load_bom_frame.pack(fill="x", pady=(0, 10))
-        self.load_button = ttk.Button(load_bom_frame, text="Load BOM...", command=self.load_bom)
-        self.load_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Configure Grid Columns within load_bom_frame
+        load_bom_frame.columnconfigure(0, weight=0)  # Load BOM button column
+        load_bom_frame.columnconfigure(1, weight=0)  # Stacked buttons column
+        load_bom_frame.columnconfigure(2, weight=1)  # File label column (expands)
+
+        # 1. Load BOM Button (Primary Action)
+        self.load_button = ttk.Button(load_bom_frame, text="Load BOM...", command=self.load_bom, style="Accent.TButton") # Apply Accent style
+        self.load_button.grid(row=0, column=0, rowspan=2, padx=(0, 85), pady=3, ipady=5, sticky='nsew')
         self.create_tooltip(self.load_button, "Load a Bill of Materials (BOM) in CSV format. Requires columns like 'Part Number' and 'Quantity'.")
-        self.file_label = ttk.Label(load_bom_frame, text="No BOM loaded.", style="Hint.TLabel", wraplength=280, background=self.COLOR_FRAME_BG)
-        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+
+        # 2. Frame for Stacked Buttons (Edit Keys, Show Guide)
+        stacked_buttons_frame = ttk.Frame(load_bom_frame, style="InnerCard.TFrame") # Use same style for consistency
+        stacked_buttons_frame.grid(row=0, column=1, rowspan=2, sticky='ns', padx=5) # Place frame in grid column 1
+
+        # Edit API Keys Button (inside stacked frame)
+        self.edit_keys_button = ttk.Button(stacked_buttons_frame, text="Edit API Keys", command=self.edit_keys_file, width=12)
+        self.edit_keys_button.pack(side=tk.TOP, pady=(2, 2), fill='x', expand=False) # Pack vertically inside stacked frame
+        self.create_tooltip(self.edit_keys_button, f"Open the '{env_path.name}' file in your default text editor.\nRestart required after saving changes.")
+
+        # Show Guide Button (inside stacked frame)
+        self.show_guide_button = ttk.Button(stacked_buttons_frame, text="Getting Started", command=self.show_startup_guide_popup, width=12)
+        self.show_guide_button.pack(side=tk.TOP, pady=(2, 2), fill='x', expand=False) # Pack vertically below edit button
+        self.create_tooltip(self.show_guide_button, "Display the Getting Started guide popup again.")
+
+        # 3. File Label
+        self.file_label = ttk.Label(load_bom_frame, text="No BOM loaded.", style="Hint.TLabel", wraplength=200, background=self.COLOR_FRAME_BG, anchor='w')
+        self.file_label.grid(row=0, column=2, rowspan=2, sticky='nsew', padx=(15, 0)) # Place in grid column 2
+
         # Analysis Controls Section
         run_frame = ttk.LabelFrame(self.config_frame, text="Analysis Controls", padding=10)
         run_frame.pack(fill="x", pady=(10, 10))
-        self.run_button = ttk.Button(run_frame, text="Run Analysis", command=self.validate_and_run_analysis, state="disabled", style="Accent.TButton")
-        self.run_button.pack(side=tk.LEFT, padx=(0,5), ipady=2)
+        self.run_button = ttk.Button(run_frame, text="1. Run Analysis", command=self.validate_and_run_analysis, state="disabled", style="Accent.TButton")
+        self.run_button.pack(side=tk.LEFT, padx=(0,5), ipady=2) # Keep pack for this frame's internal layout
         self.create_tooltip(self.run_button, "Run the full analysis using current BOM and configuration.\nFetches data from suppliers, calculates risk, and determines strategies.")
-        self.predict_button = ttk.Button(run_frame, text="Run Predictions", command=self.run_predictive_analysis_gui, state="disabled")
-        self.predict_button.pack(side=tk.LEFT, padx=5, ipady=2)
+        self.predict_button = ttk.Button(run_frame, text="2. Run Predictions", command=self.run_predictive_analysis_gui, state="disabled")
+        self.predict_button.pack(side=tk.LEFT, padx=5, ipady=2) # Keep pack for this frame's internal layout
         self.create_tooltip(self.predict_button, "Generate future cost/lead time predictions based on historical data.\nRequires historical data from previous analysis runs.")
-        self.ai_summary_button = ttk.Button(run_frame, text="AI Summary", command=self.generate_ai_summary_gui, state="disabled")
-        self.ai_summary_button.pack(side=tk.LEFT, ipady=2)
+        self.ai_summary_button = ttk.Button(run_frame, text="3. AI Summary", command=self.generate_ai_summary_gui, state="disabled")
+        self.ai_summary_button.pack(side=tk.LEFT, ipady=2) # Keep pack for this frame's internal layout
         self.create_tooltip(self.ai_summary_button, "Generate an executive summary and recommendations using OpenAI.\nRequires analysis results and an OpenAI API key.")
         ttk.Separator(self.config_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(15, 10), padx=5)
         
@@ -647,13 +677,33 @@ class BOMAnalyzerApp:
         # API Status Section
         api_status_frame = ttk.LabelFrame(self.config_frame, text="API Status", padding=10)
         api_status_frame.pack(fill="x", pady=(10, 5), anchor='w')
-        self.api_status_labels = {}; api_status_frame.columnconfigure(1, weight=1)
-        for i, (api_name, is_set) in enumerate(API_KEYS.items()):
+        self.api_status_labels = {}
+        api_status_frame.columnconfigure(0, weight=0) # Label column 1 (fixed width)
+        api_status_frame.columnconfigure(1, weight=1) # Status column 1 (expands)
+        api_status_frame.columnconfigure(2, weight=0, pad=15) # Label column 2 (fixed width, add padding before)
+        api_status_frame.columnconfigure(3, weight=1) # Status column 2 (expands)
+        
+        api_items = list(API_KEYS.items()) # Get items to iterate over
+        num_items = len(api_items)
+        num_rows = (num_items + 1) // 2 # Calculate needed rows for 2 columns
+        
+        for i, (api_name, is_set) in enumerate(api_items):
+             # Determine status text and color
              if is_set: status_text = "OK"; color = self.COLOR_SUCCESS
              elif api_name == "OpenAI": status_text = "Not Set (Optional)"; color = self.COLOR_WARN
              else: status_text = "Not Set"; color = self.COLOR_ERROR
-             lbl_name = ttk.Label(api_status_frame, text=f"{api_name}:", width=15); lbl_name.grid(row=i, column=0, sticky='w', padx=(0,5), pady=1)
-             lbl_status = ttk.Label(api_status_frame, text=status_text, foreground=color, anchor='w'); lbl_status.grid(row=i, column=1, sticky='ew', pady=1); self.api_status_labels[api_name] = lbl_status
+
+             # Calculate grid position (row, column_index)
+             row_num = i % num_rows
+             col_idx = (i // num_rows) * 2 # 0 for first column, 2 for second column
+
+             # Create and grid the widgets
+             lbl_name = ttk.Label(api_status_frame, text=f"{api_name}:", width=15)
+             lbl_name.grid(row=row_num, column=col_idx, sticky='w', padx=(0, 5), pady=1)
+
+             lbl_status = ttk.Label(api_status_frame, text=status_text, foreground=color, anchor='w')
+             lbl_status.grid(row=row_num, column=col_idx + 1, sticky='ew', pady=1)
+             self.api_status_labels[api_name] = lbl_status
 
         # --- Right Pane: Results ---
         self.results_frame = ttk.Frame(self.main_paned_window, padding=(5, 0, 10, 0))
@@ -662,12 +712,15 @@ class BOMAnalyzerApp:
         self.main_paned_window.add(self.results_frame, weight=3)
         self.results_frame.grid_rowconfigure(1, weight=1)
         self.results_frame.grid_columnconfigure(0, weight=1)
-        
+
         # Status Bar Area within Results Pane
         status_progress_frame = ttk.Frame(self.results_frame, padding=(0, 5))
         status_progress_frame.grid(row=0, column=0, sticky="ew")
-        status_progress_frame.grid_columnconfigure(0, weight=3); status_progress_frame.grid_columnconfigure(1, weight=1); status_progress_frame.grid_columnconfigure(2, weight=0); status_progress_frame.grid_columnconfigure(3, weight=2)
-   
+        status_progress_frame.grid_columnconfigure(0, weight=3); 
+        status_progress_frame.grid_columnconfigure(1, weight=1); 
+        status_progress_frame.grid_columnconfigure(2, weight=0); 
+        status_progress_frame.grid_columnconfigure(3, weight=2)
+
         self.status_label = ttk.Label(status_progress_frame, text="Ready", anchor="w"); self.status_label.grid(row=0, column=0, padx=(0, 5), sticky="ew")
         self.progress = ttk.Progressbar(status_progress_frame, orient="horizontal", length=150, mode="determinate"); self.progress.grid(row=0, column=1, padx=5, sticky="ew")
         self.progress_label = ttk.Label(status_progress_frame, text="0%", width=5); self.progress_label.grid(row=0, column=2, padx=(0, 5), sticky="w")
@@ -770,10 +823,10 @@ class BOMAnalyzerApp:
         export_buttons_main_frame.grid(row=1, column=0, sticky="ew", pady=(10, 5), padx=0)
         export_strategy_frame = ttk.Frame(export_buttons_main_frame); export_strategy_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         ttk.Label(export_strategy_frame, text="Strategy:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 5))
-        self.lowest_cost_strict_btn = ttk.Button(export_strategy_frame, text="Strict Cost", command=lambda key="Strict Lowest Cost": self.export_strategy_gui(key), state="disabled"); self.lowest_cost_strict_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.lowest_cost_strict_btn, "Export CSV for 'Strict Lowest Cost' strategy.")
-        self.in_stock_btn = ttk.Button(export_strategy_frame, text="In Stock", command=lambda key="Lowest Cost In Stock": self.export_strategy_gui(key), state="disabled"); self.in_stock_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.in_stock_btn, "Export CSV for 'Lowest Cost In Stock' strategy.")
+        self.lowest_cost_strict_btn = ttk.Button(export_strategy_frame, text="Strict Cost", command=lambda key="Strict Lowest Cost": self.export_strategy_gui(key), state="disabled"); self.lowest_cost_strict_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.lowest_cost_strict_btn, "Export CSV for 'Strict Lowest Cost' strategy regardless of lead time.")
+        self.in_stock_btn = ttk.Button(export_strategy_frame, text="In Stock", command=lambda key="Lowest Cost In Stock": self.export_strategy_gui(key), state="disabled"); self.in_stock_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.in_stock_btn, "Export CSV for 'Lowest Cost In Stock' strategy. Shows ONLY parts in stock")
         self.with_lt_btn = ttk.Button(export_strategy_frame, text="w/ LT", command=lambda key="Lowest Cost with Lead Time": self.export_strategy_gui(key), state="disabled"); self.with_lt_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.with_lt_btn, "Export CSV for 'Lowest Cost with Lead Time' strategy.")
-        self.fastest_btn = ttk.Button(export_strategy_frame, text="Fastest", command=lambda key="Fastest": self.export_strategy_gui(key), state="disabled"); self.fastest_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.fastest_btn, "Export CSV for 'Fastest' strategy.")
+        self.fastest_btn = ttk.Button(export_strategy_frame, text="Fastest", command=lambda key="Fastest": self.export_strategy_gui(key), state="disabled"); self.fastest_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.fastest_btn, "Export CSV for 'Fastest' strategy regardless of cost.")
         self.optimized_strategy_btn = ttk.Button(export_strategy_frame, text="Optimized", command=lambda key="Optimized Strategy": self.export_strategy_gui(key), state="disabled"); self.optimized_strategy_btn.pack(side=tk.LEFT, padx=2); self.create_tooltip(self.optimized_strategy_btn, "Export CSV for 'Optimized Strategy'.")
         ttk.Separator(export_buttons_main_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=5)
         export_parts_frame = ttk.Frame(export_buttons_main_frame); export_parts_frame.pack(side=tk.RIGHT, padx=(5, 0))
@@ -809,11 +862,11 @@ class BOMAnalyzerApp:
         recommend_frame.grid_columnconfigure(1, weight=0) # Button fixed size
 
         self.ai_recommendation_label = tk.Label(recommend_frame, text="Run AI Summary to get recommendation.",
-                                                 anchor='nw', justify='left', wraplength=800,
+                                                 anchor='nw', justify='left', wraplength=700,
                                                  font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL),
                                                  bg=self.COLOR_FRAME_BG, # Start with default background
                                                  fg=self.COLOR_TEXT)
-        self.ai_recommendation_label.grid(row=0, column=0, sticky='nsew', padx=(0,10), pady=5)
+        self.ai_recommendation_label.grid(row=0, column=0, sticky='nw', padx=(0,10), pady=5)
 
         self.export_recommended_btn = ttk.Button(recommend_frame, text="Export Recommended", command=self.export_ai_recommended_strategy, state="disabled")
         self.export_recommended_btn.grid(row=0, column=1, sticky='ne', padx=5, pady=5)
@@ -852,7 +905,7 @@ class BOMAnalyzerApp:
         pred_vsb = ttk.Scrollbar(pred_tree_frame, orient="vertical")
         pred_col_widths = {c: 75 for c in self.pred_header}; pred_col_widths.update({'Component': 180, 'Date': 80, 'Stock_Probability': 65, 'Real_Lead': 60, 'Real_Cost': 70, 'Real_Stock': 60, 'Prophet_Ld_Acc': 60, 'Prophet_Cost_Acc': 60, 'RAG_Ld_Acc': 60, 'RAG_Cost_Acc': 60, 'AI_Ld_Acc': 60, 'AI_Cost_Acc': 60})
         pred_col_align = {c: 'center' for c in self.pred_header}; pred_col_align.update({'Component': 'w'})
-        pred_col_tooltips = {'Component': 'Consolidated Component Name (Mfg + MPN)', 'Date': 'Date prediction generated.', 'Prophet_Lead': 'Prophet Lead Time (d)', 'Prophet_Cost': 'Prophet Unit Cost ($)', 'RAG_Lead': 'RAG Lead Time Range (d)', 'RAG_Cost': 'RAG Unit Cost Range ($)', 'AI_Lead': 'AI Combined Lead Time (d)', 'AI_Cost': 'AI Combined Unit Cost ($)', 'Stock_Probability': 'Predicted Stock Probability (%)', 'Real_Lead': 'ACTUAL Lead Time (d)', 'Real_Cost': 'ACTUAL Unit Cost ($)', 'Real_Stock': 'ACTUAL Stock OK?', 'Prophet_Ld_Acc': 'Prophet LT Acc %', 'Prophet_Cost_Acc': 'Prophet Cost Acc %', 'RAG_Ld_Acc': 'RAG LT Acc %', 'RAG_Cost_Acc': 'RAG Cost Acc %', 'AI_Ld_Acc': 'AI LT Acc %', 'AI_Cost_Acc': 'AI Cost Acc %'}
+        pred_col_tooltips = {'Component': 'Consolidated Component Name (Mfg + MPN)', 'Date': 'Date prediction generated.', 'Prophet_Lead': 'Prophet Lead Time (d)', 'Prophet_Cost': 'Prophet Unit Cost ($)', 'RAG_Lead': 'RAG Lead Time Range (d)', 'RAG_Cost': 'RAG Unit Cost Range ($)', 'AI_Lead': 'AI Combined Lead Time (d)', 'AI_Cost': 'AI Combined Unit Cost ($)', 'Stock_Probability': 'Predicted Stock Probability (%)', 'Real_Lead': 'ACTUAL Lead Time (d)', 'Real_Cost': 'ACTUAL Unit Cost ($)', 'Real_Stock': 'ACTUAL Stock OK?', 'Prophet_Ld_Acc': 'Prophet LT Accuracy % vs actual data recorded from PO', 'Prophet_Cost_Acc': 'Prophet Cost Accuracy % vs actual data recorded from PO', 'RAG_Ld_Acc': 'RAG LT Accuracy % vs actual data recorded from PO', 'RAG_Cost_Acc': 'RAG Cost Accuracy %', 'AI_Ld_Acc': 'AI LT Accuracy % vs actual data recorded from PO', 'AI_Cost_Acc': 'AI Cost Accuracy % vs actual data recorded from PO'}
         self.predictions_tree = ttk.Treeview(pred_tree_frame, columns=self.pred_header, show="headings", height=10, selectmode="browse",                                              yscrollcommand=pred_vsb.set, xscrollcommand=pred_hsb.set)
 
         self.pred_column_tooltips = {}
@@ -872,9 +925,9 @@ class BOMAnalyzerApp:
         load_pred_button = ttk.Button(pred_actions_frame, text="Load / Refresh", command=self.load_predictions_to_gui); load_pred_button.pack(side=tk.LEFT, padx=(0, 10)); self.create_tooltip(load_pred_button, f"Load/Reload prediction data from {PREDICTION_FILE.name}.")
         update_inputs_frame = ttk.Frame(pred_actions_frame); update_inputs_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Label(update_inputs_frame, text="Update Actuals ->").pack(side=tk.LEFT, padx=(0,5))
-        lbl_actual_lead = ttk.Label(update_inputs_frame, text="Lead:"); lbl_actual_lead.pack(side=tk.LEFT, padx=(0,2)); self.real_lead_entry = ttk.Entry(update_inputs_frame, width=6, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_lead_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_lead_entry, "Enter ACTUAL observed lead time (days).")
-        lbl_actual_cost = ttk.Label(update_inputs_frame, text="Cost:"); lbl_actual_cost.pack(side=tk.LEFT, padx=(0,2)); self.real_cost_entry = ttk.Entry(update_inputs_frame, width=8, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_cost_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_cost_entry, "Enter ACTUAL unit cost ($).")
-        lbl_actual_stock = ttk.Label(update_inputs_frame, text="Stock OK?:"); lbl_actual_stock.pack(side=tk.LEFT, padx=(0,2)); self.real_stock_var = tk.StringVar(value="?"); self.real_stock_combo = ttk.Combobox(update_inputs_frame, textvariable=self.real_stock_var, values=["?", "True", "False"], width=5, state='readonly', font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_stock_combo.pack(side=tk.LEFT, padx=(0,10)); self.create_tooltip(self.real_stock_combo, "Select if sufficient stock was ACTUALLY available.")
+        lbl_actual_lead = ttk.Label(update_inputs_frame, text="Lead:"); lbl_actual_lead.pack(side=tk.LEFT, padx=(0,2)); self.real_lead_entry = ttk.Entry(update_inputs_frame, width=6, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_lead_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_lead_entry, "Enter ACTUAL observed lead time (days). This should be data from actual purchase order created")
+        lbl_actual_cost = ttk.Label(update_inputs_frame, text="Cost:"); lbl_actual_cost.pack(side=tk.LEFT, padx=(0,2)); self.real_cost_entry = ttk.Entry(update_inputs_frame, width=8, font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_cost_entry.pack(side=tk.LEFT, padx=(0,5)); self.create_tooltip(self.real_cost_entry, "Enter ACTUAL unit cost ($). This should be date from actual purchase order created")
+        lbl_actual_stock = ttk.Label(update_inputs_frame, text="Stock OK?:"); lbl_actual_stock.pack(side=tk.LEFT, padx=(0,2)); self.real_stock_var = tk.StringVar(value="?"); self.real_stock_combo = ttk.Combobox(update_inputs_frame, textvariable=self.real_stock_var, values=["?", "True", "False"], width=5, state='readonly', font=(self.FONT_FAMILY, self.FONT_SIZE_NORMAL)); self.real_stock_combo.pack(side=tk.LEFT, padx=(0,10)); self.create_tooltip(self.real_stock_combo, "Select if sufficient stock was ACTUALLY available when creating purchase order.")
         self.save_pred_update_btn = ttk.Button(update_inputs_frame, text="Save", command=self.save_prediction_updates, state="disabled"); self.save_pred_update_btn.pack(side=tk.LEFT); self.create_tooltip(self.save_pred_update_btn, "Save entered Actuals to the predictions CSV for the selected row.")
         self.selected_pred_id_label = ttk.Label(pred_actions_frame, text=" ", style="Hint.TLabel"); self.selected_pred_id_label.pack(side=tk.RIGHT, padx=(5, 0))
         self.predictions_tree.bind("<Motion>", self._on_predictions_tree_motion); self.predictions_tree.bind("<Leave>", self._on_predictions_tree_leave); self.predictions_tree.bind('<<TreeviewSelect>>', self.on_prediction_select)
@@ -890,10 +943,10 @@ class BOMAnalyzerApp:
         ttk.Label(avg_frame, text="Lead Time", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=1, columnspan=2, sticky='ew')
         ttk.Label(avg_frame, text="Cost", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=3, columnspan=2, sticky='ew')
         ttk.Label(avg_frame, text="Model", font=("Segoe UI", 8, "bold")).grid(row=1, column=0, sticky='w', padx=5, pady=(0,3))
-        ttk.Label(avg_frame, text="Avg Acc%", font=("Segoe UI", 8, "bold")).grid(row=1, column=1, sticky='ew', pady=(0,3))
-        ttk.Label(avg_frame, text="# Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=2, sticky='ew', pady=(0,3))
-        ttk.Label(avg_frame, text="Avg Acc%", font=("Segoe UI", 8, "bold")).grid(row=1, column=3, sticky='ew', pady=(0,3))
-        ttk.Label(avg_frame, text="# Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=4, sticky='ew', pady=(0,3))
+        ttk.Label(avg_frame, text="Avg Accuracy%", font=("Segoe UI", 8, "bold")).grid(row=1, column=1, sticky='ew', pady=(0,3))
+        ttk.Label(avg_frame, text="# Data Pts in calculation", font=("Segoe UI", 8, "bold")).grid(row=1, column=2, sticky='ew', pady=(0,3))
+        ttk.Label(avg_frame, text="Avg Accuracy%", font=("Segoe UI", 8, "bold")).grid(row=1, column=3, sticky='ew', pady=(0,3))
+        ttk.Label(avg_frame, text="# Data Pts in calculation", font=("Segoe UI", 8, "bold")).grid(row=1, column=4, sticky='ew', pady=(0,3))
         
         for i, model in enumerate(models):
             row_num = i + 2
@@ -934,6 +987,7 @@ class BOMAnalyzerApp:
         initial_analysis_sash_pos = 400
         self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
         self.root.after(200, self.show_startup_guide_popup)
+        self.update_export_buttons_state()
         self.load_mouser_request_counter()
         self.update_rate_limit_display()
         logger.info("GUI initialization complete.")
@@ -983,22 +1037,34 @@ class BOMAnalyzerApp:
         guide_text = """
     Welcome! Here's a quick guide:
 
+    **WARNING!!!  BOM Analyzer will NOT run without API keys.  API keys need to be entered into the 'keys.env' file in the same directory as the python run file.  This file can be created with the following format:
+    
+                    DIGIKEY_CLIENT_ID=***USER API KEY***
+                    DIGIKEY_CLIENT_SECRET=***USER API KEY***
+                    MOUSER_API_KEY=***USER API KEY***
+                    CHATGPT_API_KEY=***USER API KEY***
+                    GITHUB_TOKEN=***USER API KEY***
+                    NEXAR_CLIENT_ID=***USER API KEY***
+                    NEXAR_CLIENT_SECRET=***USER API KEY***
+                    ARROW_CLIENT_LOGIN=***USER API KEY***
+                    ARROW_SECRET=***USER API KEY***
+                    AVNET_CLIENT=***USER API KEY***
+                    AVNET_CLIENT_SECRET=***USER API KEY***   
+
     1.  **Load BOM:** Click 'Load BOM...' to select your Bill of Materials CSV file. Ensure it has columns like 'Part Number' and 'Quantity'. Manufacturer is helpful but optional.
 
-    2.  **Configure:**
+    2.  **Configure: Optimized Strategy Configuration**
         *   Set 'Total Units to Build'.
-        *   Adjust 'Optimized Strategy' parameters (Max Premium %, Target Lead Time, Weights, Buy-Up Threshold) to define your priorities. Hover over inputs for details.
-        *   (Optional) Enter any 'Custom Tariff Rates'.
+        *   Adjust 'Optimized Strategy Configurations' parameters (Max Premium %, Target Lead Time, Weights, Buy-Up Threshold) to define your priorities. Hover over inputs for details.
+        *   (Optional) Enter any 'Custom Tariff Rates'. (Default country tariff rates used based on part origin if left blank.)
 
-    3.  **Run Analysis:** Click 'Run Analysis'. The app will fetch data from enabled suppliers (check API Status), calculate costs, lead times, risks, and strategies.
+    3.  **Run Analysis:** Click 'Run Analysis'. The app will fetch data from enabled suppliers (check API Status), calculate costs, lead times, risks, and strategies.  The Results are available on the 'BOM Analysis' tab.  Double-click a row for alternates. Export strategies or the full view.
 
-    4.  **Review Results:**
-        *   **BOM Analysis Tab:** View the main parts list and summary metrics. Double-click a row for alternates. Export strategies or the full view.
-        *   **AI & Predictions Tab:**
+    4.  **Run Predictions and AI Summary:**
             *   Click 'Run Predictions' to forecast future cost/lead time based on history.
-            *   Click 'AI Summary' (requires OpenAI key) for insights. (Predictions must be run first)
-            *   Enter actual results ('Real Lead', 'Real Cost', 'Real Stock') and click 'Save Actuals' to improve future accuracy calculations.
-        *   **Visualizations Tab:** Select different plots to visualize analysis results.
+            *   Enter actual results ('Real Lead', 'Real Cost', 'Real Stock') and click 'Save Actuals' to improve future accuracy calculations
+            *   Click 'AI Summary' (requires OpenAI key) for insights. (Predictions must be run first)      
+        **Visualizations Tab:** Select different plots to visualize analysis results.
 
     5.  **Tooltips:** Hover over table headers and configuration inputs for definitions. Tooltip text appears in the status bar at the bottom.
         """
@@ -1032,8 +1098,8 @@ class BOMAnalyzerApp:
 
         # Center popup and make modal
         self.center_window(popup)
-        popup.grab_set() # Make modal
-        popup.wait_window() # Wait until closed
+        #popup.grab_set() # Make modal
+        #popup.wait_window() # Wait until closed
 
    
     def setup_plot_options(self):
@@ -2698,6 +2764,46 @@ class BOMAnalyzerApp:
         self.root.after(10, self.update_analysis_controls_state, self.running_analysis)
 
         return is_valid # Return validity status
+
+
+    # --- Start Change: Add method to open keys.env ---
+    def edit_keys_file(self):
+        """Attempts to open the keys.env file in the default text editor."""
+        keys_file_path = SCRIPT_DIR / 'keys.env'
+        logger.info(f"Attempting to open keys file: {keys_file_path}")
+    
+        if not keys_file_path.exists():
+            msg = f"{keys_file_path.name} not found in the script directory ({SCRIPT_DIR}).\nPlease create it manually and add your API keys."
+            logger.warning(msg)
+            messagebox.showwarning("File Not Found", msg)
+            return
+    
+        try:
+            if sys.platform == "win32":
+                # os.startfile(keys_file_path) # Might work but less reliable for default editor
+                subprocess.run(['notepad.exe', str(keys_file_path)], check=False) # Try notepad first
+            elif sys.platform == "darwin": # macOS
+                subprocess.run(['open', '-t', str(keys_file_path)], check=True) # '-t' forces text editor
+            else: # Linux and other POSIX
+                subprocess.run(['xdg-open', str(keys_file_path)], check=True) # Relies on xdg-utils
+            logger.info(f"Successfully launched editor for {keys_file_path.name}")
+            messagebox.showinfo("Edit API Keys", f"Opened {keys_file_path.name} in default editor.\n\nRestart the application after saving changes for them to take effect.")
+    
+        except FileNotFoundError as e:
+             # Specific error if 'open' or 'xdg-open' or 'notepad.exe' isn't found
+             err_msg = f"Could not find command to open the file.\nPlatform: {sys.platform}\nError: {e}"
+             logger.error(err_msg, exc_info=True)
+             messagebox.showerror("Error Opening File", err_msg)
+        except subprocess.CalledProcessError as e:
+             # Error if the command ran but returned an error code
+             err_msg = f"Error returned by editor command.\nPlatform: {sys.platform}\nError: {e}"
+             logger.error(err_msg, exc_info=True)
+             messagebox.showerror("Error Opening File", err_msg)
+        except Exception as e:
+            # Catch-all for other unexpected errors
+            err_msg = f"Could not open {keys_file_path.name}.\nError: {e}"
+            logger.error(err_msg, exc_info=True)
+            messagebox.showerror("Error Opening File", err_msg)
 
     # --- BOM Loading ---
     def load_bom(self):
