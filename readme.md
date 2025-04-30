@@ -3,6 +3,7 @@
 
 ## Table of Contents
 * [General Info](#general-information)
+* [White Paper](#White-Paper)
 * [Technologies Used](#technologies-used)
 * [Features](#features)
 * [Screenshots](#screenshots)
@@ -15,6 +16,9 @@
 
 ## General Information
 The BOM Analyzer is a Python-based desktop application designed to automate the time-consuming process of analyzing Bill of Materials (BOMs) for new electronic products. It integrates directly with major supplier APIs to fetch real-time pricing, stock, and lead time data, calculates optimal purchasing strategies, assesses multi-factor risks, provides predictive insights, and generates AI-powered summaries to support faster, data-driven decision-making.
+
+## White Paper 
+[White Paper Document](BOM_Analyzer_White_Paper_1.0.0.docx)
 
 
 ## Technologies Used
