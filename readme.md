@@ -3,6 +3,7 @@
 
 ## Table of Contents
 * [General Info](#general-information)
+* [White Paper](#White-Paper)
 * [Technologies Used](#technologies-used)
 * [Features](#features)
 * [Screenshots](#screenshots)
@@ -15,6 +16,9 @@
 
 ## General Information
 The BOM Analyzer is a Python-based desktop application designed to automate the time-consuming process of analyzing Bill of Materials (BOMs) for new electronic products. It integrates directly with major supplier APIs to fetch real-time pricing, stock, and lead time data, calculates optimal purchasing strategies, assesses multi-factor risks, provides predictive insights, and generates AI-powered summaries to support faster, data-driven decision-making.
+
+## White Paper 
+[White Paper Document](BOM_Analyzer_White_Paper_1.0.0.docx)
 
 
 ## Technologies Used
@@ -138,12 +142,30 @@ Project is: _complete_ / In process of prioritizing features on future roadmap.
 
 
 ## Contact
-Created by [@ctylerallen](ctylerallen@proton.me) - feel free to contact me!
+Created by [@ctylerallen](https://www.linkedin.com/in/ctylerallen/) - feel free to contact me!
 
 
 
 ## License 
-This is free and unencumbered software released into the public domain.
+MIT License
 
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute this software, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means.
+Copyright (c) 2025 Tyler Allen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
