@@ -138,7 +138,7 @@ Project is: _complete_ / In process of prioritizing features on future roadmap.
 
 
 ## Contact
-Created by [@ctylerallen](ctylerallen@proton.me) - feel free to contact me!
+Created by [@ctylerallen](www.linkedin.com/in/ctylerallen) - feel free to contact me!
 
 
 
