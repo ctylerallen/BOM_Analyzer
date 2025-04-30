@@ -1,0 +1,64 @@
+# Use a specific Python version - choose one compatible with your dependencies
+# Slim images are smaller but might lack some build tools initially
+FROM python:3.11-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Install system dependencies required for building some Python packages
+# (like Prophet's dependencies - adjust as needed)
+# Using slim image requires installing build tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements file first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+# Use --no-cache-dir to reduce image size
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code into the container
+COPY . .
+
+# --- Environment Variables ---
+# Set environment variable needed for Tkinter display redirection
+# This assumes X11 forwarding is set up on the host when running the container
+ENV DISPLAY=:0
+# Set Matplotlib backend to TkAgg explicitly (though done in code, good practice)
+ENV MPLBACKEND=TkAgg
+
+# --- Expose Ports (If needed - unlikely for this desktop app) ---
+# EXPOSE 8000 # Only if you were exposing the OAuth server externally
+
+# --- Default Command ---
+# Command to run when the container starts
+# Assumes keys.env and localhost.pem will be mounted as volumes by the user
+# Or API keys provided via environment variables to the container run command
+CMD ["python", "test_local.py"]
+
+# --- Build and Run Instructions (Add to README or separate doc) ---
+#
+# To build the image:
+#   docker build -t npi-bom-analyzer .
+#
+# To run the container (example assuming X11 forwarding setup on Linux host):
+#   # 1. Share X11 socket:
+#   xhost +local:docker
+#   # 2. Run container, mounting keys, cert, and cache, setting DISPLAY:
+#   docker run -it --rm \
+#     -e DISPLAY=$DISPLAY \
+#     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+#     -v $(pwd)/keys.env:/app/keys.env:ro \
+#     -v $(pwd)/localhost.pem:/app/localhost.pem:ro \
+#     -v $(pwd)/cache:/app/cache \
+#     npi-bom-analyzer
+#
+# (Note: Running GUI apps in Docker, especially cross-platform, can be complex.
+#  The X11 setup above is typical for Linux. macOS/Windows require different setups
+#  like XQuartz (macOS) or VcXsrv/X410 (Windows) and adjusting volume mounts/display vars.)
+#
