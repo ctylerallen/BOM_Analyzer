@@ -32,7 +32,7 @@ The BOM Analyzer is a Python-based desktop application designed to automate the 
 
 
 ## Features
-*   **Automated Data Aggregation:** Fetches real-time data (pricing tiers, stock, lead time, COO, HTS, lifecycle) via official APIs (Digi-Key, Mouser, Octopart/Nexar).
+*   **Automated Data Aggregation:** Fetches real-time data (pricing tiers, stock, lead time, COO, HTS, lifecycle) via official APIs (Digi-Key, Mouser, Octopart/Nexar, Arrow, Avnet).
 *   **BOM Import & Validation:** Loads CSV BOMs, handles common column names, cleans basic data.
 *   **Optimal Cost Calculation:** Determines lowest total cost considering MOQs and price breaks, including optional "buy-up" logic.
 *   **Multiple Sourcing Strategies:** Calculates and compares Lowest Cost (Strict, In Stock, w/ LT), Fastest, and a user-configurable Optimized strategy (balancing cost/lead time).
@@ -44,15 +44,14 @@ The BOM Analyzer is a Python-based desktop application designed to automate the 
 *   **Interactive GUI:** Built with Tkinter/ttk, featuring sortable tables, tabbed results, interactive plots (powered by Matplotlib/Seaborn), and integrated tooltips.
 
 ## Screenshots
-![Example screenshot](./img/screenshot.png)
-Screen Shot 2025-04-27 at 10.01.09 PM.png
+![Example screenshot]
 
 ## Setup Instructions
 
 1.  **Clone the Repository:**
     ```bash
     git clone [Your GitHub Repository URL]
-    cd npi-bom-analyzer # Or your repository name
+    cd bom-analyzer # Or your repository name
     ```
 
 2.  **Create a Virtual Environment (Recommended):**
@@ -88,10 +87,10 @@ Screen Shot 2025-04-27 at 10.01.09 PM.png
         OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 
         # Arrow API Key (Optional - Not fully implemented yet)
-        # ARROW_API_KEY=YOUR_ARROW_API_KEY
+        ARROW_API_KEY=YOUR_ARROW_API_KEY
 
         # Avnet API Key (Optional - Not fully implemented yet)
-        # AVNET_API_KEY=YOUR_AVNET_API_KEY
+        AVNET_API_KEY=YOUR_AVNET_API_KEY
         ```
     *   **Important:** Ensure the Redirect URI for your DigiKey App registration is set to `https://localhost:8000`.
 
@@ -107,7 +106,7 @@ Screen Shot 2025-04-27 at 10.01.09 PM.png
 
 1.  **Run the Application:**
     ```bash
-    python test_local.py
+    python BOM_Analyzer.py
     ```
     *(Ensure your virtual environment is activated)*
 
