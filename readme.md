@@ -45,6 +45,7 @@ The BOM Analyzer is a Python-based desktop application designed to automate the 
 
 ## Screenshots
 ![Example screenshot](example1.png)
+![Example screenshot](example7.png)
 
 ## Setup Instructions
 
