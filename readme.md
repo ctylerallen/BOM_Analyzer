@@ -3,7 +3,7 @@
 
 ## Table of Contents
 * [General Info](#general-information)
-* [White Paper](#White-Paper)
+* [White Paper](#white-paper)
 * [Technologies Used](#technologies-used)
 * [Features](#features)
 * [Screenshots](#screenshots)
