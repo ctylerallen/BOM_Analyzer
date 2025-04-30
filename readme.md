@@ -1,4 +1,5 @@
-# BOM Analyzer - v1.0.0
+# [BOM Analyzer - v1.0.0](https://github.com/ctylerallen/BOM_Analyzer)
+
 **Streamline Electronic Component Sourcing, Optimize Costs, and Mitigate Supply Chain Risks during New Product Introduction (NPI).**
 
 ## Table of Contents
