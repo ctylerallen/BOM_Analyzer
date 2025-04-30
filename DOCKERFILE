@@ -39,12 +39,12 @@ ENV MPLBACKEND=TkAgg
 # Command to run when the container starts
 # Assumes keys.env and localhost.pem will be mounted as volumes by the user
 # Or API keys provided via environment variables to the container run command
-CMD ["python", "test_local.py"]
+CMD ["python", "BOM_Analyzer.py"]
 
 # --- Build and Run Instructions (Add to README or separate doc) ---
 #
 # To build the image:
-#   docker build -t npi-bom-analyzer .
+#   docker build -t bom-analyzer .
 #
 # To run the container (example assuming X11 forwarding setup on Linux host):
 #   # 1. Share X11 socket:
@@ -56,7 +56,7 @@ CMD ["python", "test_local.py"]
 #     -v $(pwd)/keys.env:/app/keys.env:ro \
 #     -v $(pwd)/localhost.pem:/app/localhost.pem:ro \
 #     -v $(pwd)/cache:/app/cache \
-#     npi-bom-analyzer
+#     bom-analyzer
 #
 # (Note: Running GUI apps in Docker, especially cross-platform, can be complex.
 #  The X11 setup above is typical for Linux. macOS/Windows require different setups
