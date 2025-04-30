@@ -6,11 +6,9 @@
 * [Technologies Used](#technologies-used)
 * [Features](#features)
 * [Screenshots](#screenshots)
-* [Setup](#setup)
-* [Usage](#usage)
+* [Setup](#setup-instructions)
+* [Usage](#usage-instructions)
 * [Project Status](#project-status)
-* [Room for Improvement](#room-for-improvement)
-* [Acknowledgements](#acknowledgements)
 * [Contact](#contact)
 * [License](#license) 
 
@@ -44,9 +42,9 @@ The BOM Analyzer is a Python-based desktop application designed to automate the 
 *   **Interactive GUI:** Built with Tkinter/ttk, featuring sortable tables, tabbed results, interactive plots (powered by Matplotlib/Seaborn), and integrated tooltips.
 
 ## Screenshots
-![Example screenshot](example1.png)
-![Example screenshot](example7.png)
-![Example screenshot](example2.png)
+[Example screenshot](example1.png)
+[Example screenshot](example7.png)
+[Example screenshot](example2.png)
 
 ## Setup Instructions
 
@@ -140,7 +138,7 @@ Project is: _complete_ / In process of prioritizing features on future roadmap.
 
 
 ## Contact
-Created by [@ctylerallen](ctylerallen@protonmail.com) - feel free to contact me!
+Created by [@ctylerallen](ctylerallen@proton.me) - feel free to contact me!
 
 
 
