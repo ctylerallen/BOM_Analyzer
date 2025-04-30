@@ -24,7 +24,6 @@ import threading # For checking main thread
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-import seaborn as sns 
 import subprocess
 
 # --- Dependency Check ---
@@ -85,7 +84,7 @@ DEFAULT_APP_CONFIG = {
 # File Paths
 TOKEN_FILE = CACHE_DIR / 'digikey_oauth2_token.json'
 MOUSER_COUNTER_FILE = CACHE_DIR / 'mouser_request_counter.json'
-NEXAR_TOKEN_FILE = CACHE_DIR / 'nexar_oauth2_token.json' # Renamed for clarity
+NEXAR_TOKEN_FILE = CACHE_DIR / 'nexar_oauth2_token.json' 
 HISTORICAL_DATA_FILE = SCRIPT_DIR / 'bom_historical_data.csv'
 PREDICTION_FILE = SCRIPT_DIR / 'supply_chain_predictions.csv'
 
@@ -97,7 +96,7 @@ NEXAR_API_URL = "https://api.nexar.com/graphql"
 DEFAULT_TARIFF_RATE = 0.035
 API_TIMEOUT_SECONDS = 20 # Increased slightly
 MAX_API_WORKERS = 8
-APP_NAME = "NPI BOM Analyzer"
+APP_NAME = "BOM Analyzer"
 APP_VERSION = "1.0.0" # Updated Version
 
 # --- Load Environment Variables ---
@@ -165,7 +164,7 @@ def call_chatgpt(prompt, model="gpt-4o", max_tokens=2000): # Updated model, incr
 
     Args:
         prompt (str): The user prompt for the AI.
-        model (str): The OpenAI model to use (e.g., "gpt-4o", "gpt-3.5-turbo").
+        model (str): The OpenAI model to use (e.g., "gpt-4o").
         max_tokens (int): The maximum number of tokens to generate in the response.
 
     Returns:
@@ -212,8 +211,6 @@ def call_chatgpt(prompt, model="gpt-4o", max_tokens=2000): # Updated model, incr
             logger.error(f"OpenAI Authentication Error: {e}. Check your API key.")
             # Disable OpenAI key in the app state?
             API_KEYS["OpenAI"] = False
-            # Schedule GUI update? Needs access to app instance. Pass app or use callback.
-            # For now, just log and return error.
             return "OpenAI Authentication Error. Check Key."
 
         except Exception as e:
@@ -263,7 +260,6 @@ def init_csv_file(filepath, header):
 
     except IOError as e:
         logger.error(f"Failed to initialize/check CSV file {filepath}: {e}")
-        # Attempt GUI popup (handle potential early Tkinter issues)
         try:
             import tkinter as tk; from tkinter import messagebox
             temp_root = tk.Tk(); temp_root.withdraw()
@@ -339,8 +335,6 @@ def convert_lead_time_to_days(lead_time_str):
     """
     if lead_time_str is None or pd.isna(lead_time_str): return np.nan
 
-    # Handle direct numeric input (assume weeks if > reasonable number of days?)
-    # Let's treat direct numbers as days for simplicity, as APIs often return days.
     if isinstance(lead_time_str, (int, float)):
         if np.isinf(lead_time_str) or pd.isna(lead_time_str): return np.nan
         return int(round(lead_time_str)) # Treat number as days directly, round first
@@ -413,7 +407,6 @@ class OAuthHandler(BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(query)
 
             code = params.get('code', [None])[0]
-            # state = params.get('state', [None])[0] # Optional: Validate state if used
 
             if code:
                 server_instance.auth_code = code # Store code on the server instance
@@ -488,7 +481,7 @@ class BOMAnalyzerApp:
     # --- Define Font Sizes as Class Attributes ---
     FONT_FAMILY = "Segoe UI" # Or choose another suitable font
     FONT_SIZE_SMALL = 8
-    FONT_SIZE_NORMAL = 10     # Increased from 9
+    FONT_SIZE_NORMAL = 10  
     FONT_SIZE_LARGE = 11     # For headings/tabs
     FONT_SIZE_XLARGE = 15    # For main titles
     # --- End Font Sizes ---
@@ -503,7 +496,7 @@ class BOMAnalyzerApp:
         "Unknown": 4, "N/A": 4, "_DEFAULT_": 4
     }
     RISK_CATEGORIES = {'high': (6.6, 10.0), 'moderate': (3.6, 6.5), 'low': (0.0, 3.5)}
-    # --- End Risk Configuration ---
+ 
 
     def __init__(self, root):
         """
@@ -533,14 +526,13 @@ class BOMAnalyzerApp:
         self.FONT_SIZE_XLARGE = BOMAnalyzerApp.FONT_SIZE_XLARGE
 
         # Initialize all widget instance variables to None.
-        # Good practice to prevent AttributeError if accessed before assignment.
         self.load_button = self.file_label = self.run_button = self.predict_button = None
         self.ai_summary_button = self.validation_label = self.tree = self.analysis_table = None
         self.predictions_tree = self.ai_summary_text = self.status_label = self.progress = None
         self.progress_label = self.rate_label = self.universal_status_bar = None
         self.universal_tooltip_label = self.plot_combo = self.plot_frame = None
         self.fig_canvas = self.toolbar = self.export_parts_list_btn = None
-        self.lowest_cost_btn = self.fastest_btn = self.optimized_strategy_btn = None # Note: lowest_cost_btn is not assigned later, might be dead code.
+        self.lowest_cost_btn = self.fastest_btn = self.optimized_strategy_btn = None 
         self.lowest_cost_strict_btn = self.in_stock_btn = self.with_lt_btn = None
         self.alt_popup = None  # Reference to the alternates popup window, if open
         self.summary_popup = None  # Reference to the summary details popup window, if open
@@ -551,7 +543,6 @@ class BOMAnalyzerApp:
         # Configure main window properties
         self.root.title(f"{APP_NAME} - v{APP_VERSION}")
         self.root.geometry("1500x900")
-        # Lock window size for a consistent presentation, often suitable for portfolio apps.
         self.root.minsize(1500, 900)
         self.root.maxsize(1500, 900)
         # Configure root grid weights: row 0 (main content) expands, row 1 (status bar) fixed height.
@@ -561,11 +552,9 @@ class BOMAnalyzerApp:
         self.root.configure(bg=self.COLOR_BACKGROUND) # Set base background color.
 
         # --- Theme and Style Configuration ---
-        # Utilize ttk styles for a modern, consistent look-and-feel across widgets.
         self.style = ttk.Style()
         available_themes = self.style.theme_names()
     
-        # Attempt to apply a preferred theme for better aesthetics, falling back gracefully.
         preferred_themes = ['clam', 'alt', 'vista', 'xpnative', 'default']
         chosen_theme = None
         for theme in preferred_themes:
@@ -634,11 +623,11 @@ class BOMAnalyzerApp:
 
         # Configuration for ScrolledText tags (applied later during text insertion).
         # Provides semantic styling within the AI summary text area.
-        # Example: self.ai_summary_text.tag_configure("critical", ...) will be done after widget creation.
-        self.ai_summary_text_widget = None # Placeholder if needed before widget creation
+        
+        self.ai_summary_text_widget = None 
 
         # Initialize data structures used throughout the class instance.
-        self.tooltip_texts = {} # Potentially used by tooltip handler
+        self.tooltip_texts = {} 
         # Define column headers for data tables (Treeviews) for consistency.
         self.hist_header = ['Component', 'Manufacturer', 'Part_Number', 'Distributor', 'Lead_Time_Days', 'Cost', 'Inventory', 'Stock_Probability', 'Fetch_Timestamp']
         self.pred_header = ['Component', 'Date', 'Prophet_Lead', 'Prophet_Cost', 'RAG_Lead', 'RAG_Cost', 'AI_Lead', 'AI_Cost', 'Stock_Probability', 'Real_Lead', 'Real_Cost', 'Real_Stock', 'Prophet_Ld_Acc', 'Prophet_Cost_Acc', 'RAG_Ld_Acc', 'RAG_Cost_Acc','AI_Ld_Acc', 'AI_Cost_Acc']
@@ -647,7 +636,6 @@ class BOMAnalyzerApp:
         # Use a PanedWindow for the primary horizontal split between configuration (left) and results (right).
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.main_paned_window.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 5))
-        # logger.debug("Main paned window gridded onto root window.") # DEBUG removed
 
         # --- Universal Status Bar ---
         # A dedicated frame at the bottom for status messages and tooltip display.
@@ -664,14 +652,11 @@ class BOMAnalyzerApp:
         # --- Left Pane: Configuration Section ---
         # Outer frame applies 'Card' style and padding for the entire config pane.
         self.config_frame_outer = ttk.Frame(self.main_paned_window, padding=0, width=450, style="Card.TFrame")
-        # Outer frame doesn't need grid configuration itself, added to PanedWindow later.
         # Inner frame holds the actual widgets, using pack layout for vertical stacking.
         self.config_frame = ttk.Frame(self.config_frame_outer, padding=(15, 15), style="InnerCard.TFrame")
         self.config_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # Commented-out scrollbar implementation removed for clarity as it wasn't used.
 
         # --- Configuration Widgets ---
-        # Add widgets sequentially using pack layout within self.config_frame.
 
         # Application Title
         ttk.Label(self.config_frame, text=f"{APP_NAME} v{APP_VERSION}", style="Title.TLabel").pack(fill="x", pady=(0, 15), anchor='w')
@@ -873,7 +858,7 @@ class BOMAnalyzerApp:
         headings = [ "BOM P/N", "Manufacturer", "Mfg P/N", "Need", "Lifecycle", "Aval Sources", "Stock", "COO", "Risk", "Tariff", "Unit Cost", "Total Cost", "Buy Qty", "LT", "Source", "Alts?", "Notes/Flags" ]
         col_widths = { "PartNumber": 140, "Manufacturer": 110, "MfgPN": 90, "QtyNeed": 50, "Status": 65, "Sources": 80, "StockAvail": 70, "COO": 45, "RiskScore": 45, "TariffPct": 50, "BestCostPer": 70, "BestTotalCost": 75, "ActualBuyQty": 55, "BestCostLT": 35, "BestCostSrc": 50, "Alternates": 40, "Notes": 150 }
         col_align = { "PartNumber": 'w', "Manufacturer": 'w', "MfgPN": 'w', "QtyNeed": 'center', "Status": 'center', "Sources": 'center', "StockAvail": 'e', "COO": 'center', "RiskScore": 'center', "TariffPct": 'e', "BestCostPer": 'e', "BestTotalCost": 'e', "ActualBuyQty": 'center', "BestCostLT": 'center', "BestCostSrc": 'center', "Alternates": 'center', "Notes": 'w' }
-        # Tooltips explaining the meaning of each column in the analysis view. Crucial for usability.
+        # Tooltips explaining the meaning of each column in the analysis view. 
         col_tooltips = {
             "PartNumber": "Part number from the input BOM.", "Manufacturer": "Consolidated Manufacturer Name.", "MfgPN": "Consolidated Manufacturer Part Number.",
             "QtyNeed": "Total quantity needed (BOM Qty/Unit * Total Units).", "Status": "Lifecycle status (Active, EOL, Discontinued, NRND).", "Aval Sources": "Number of suppliers found with data.",
@@ -923,7 +908,7 @@ class BOMAnalyzerApp:
         self.analysis_table.configure(yscrollcommand=self.analysis_table_scrollbar.set)
         self.analysis_table.grid(row=0, column=0, sticky="nsew")
         self.analysis_table_scrollbar.grid(row=0, column=1, sticky="ns")
-        # Bind events (optional, e.g., for metric-specific tooltips or actions).
+        # Bind events 
         self.analysis_table.bind("<Enter>", self._on_widget_enter, add='+')
         self.analysis_table.bind("<Leave>", self._on_widget_leave, add='+')
         self.analysis_table.bind("<Motion>", self._on_summary_table_motion, add='+')
@@ -1027,7 +1012,7 @@ class BOMAnalyzerApp:
         # Configure columns dynamically.
         for col in self.pred_header:
             width = pred_col_widths.get(col, 75); align = pred_col_align.get(col, 'center'); heading_text = col.replace('_',' '); tooltip_text = pred_col_tooltips.get(col, heading_text)
-            self.predictions_tree.heading(col, text=heading_text, anchor='center') # No sorting command added here, can be added if needed.
+            self.predictions_tree.heading(col, text=heading_text, anchor='center') 
             self.predictions_tree.column(col, width=width, minwidth=10, stretch=False, anchor=align) # Typically False stretch for data tables.
             self.pred_column_tooltips[col] = tooltip_text
         # Configure scrollbars and pack layout.
@@ -1088,9 +1073,9 @@ class BOMAnalyzerApp:
         ttk.Label(avg_frame, text="Cost", font=("Segoe UI", 9, "bold"), anchor='center').grid(row=0, column=3, columnspan=2, sticky='ew')
         ttk.Label(avg_frame, text="Model", font=("Segoe UI", 8, "bold")).grid(row=1, column=0, sticky='w', padx=5, pady=(0,3))
         ttk.Label(avg_frame, text="Avg Accuracy%", font=("Segoe UI", 8, "bold")).grid(row=1, column=1, sticky='ew', pady=(0,3))
-        ttk.Label(avg_frame, text="# Data Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=2, sticky='ew', pady=(0,3)) # Shortened header
+        ttk.Label(avg_frame, text="# Data Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=2, sticky='ew', pady=(0,3)) 
         ttk.Label(avg_frame, text="Avg Accuracy%", font=("Segoe UI", 8, "bold")).grid(row=1, column=3, sticky='ew', pady=(0,3))
-        ttk.Label(avg_frame, text="# Data Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=4, sticky='ew', pady=(0,3)) # Shortened header
+        ttk.Label(avg_frame, text="# Data Pts", font=("Segoe UI", 8, "bold")).grid(row=1, column=4, sticky='ew', pady=(0,3)) 
         # Create accuracy display labels dynamically for each model.
         for i, model in enumerate(models):
             row_num = i + 2
@@ -1123,42 +1108,38 @@ class BOMAnalyzerApp:
         # Frame where the Matplotlib canvas will be embedded.
         self.plot_frame = ttk.Frame(self.viz_tab, relief="sunken", borderwidth=1)
         self.plot_frame.grid(row=1, column=0, sticky="nsew") # Plot area below controls.
-        # Matplotlib canvas and toolbar references (initialized to None, created later).
         self.fig_canvas = None
         self.toolbar = None
 
         # --- Initialize Core Data/State Variables ---
-        # Variables holding application data (DataFrames, results, tokens, etc.)
+
         self.bom_df = None; self.bom_filepath = None; self.analysis_results = {}; self.strategies_for_export = {}; self.historical_data_df = None
         self.predictions_df = None; self.digikey_token_data = None; self.nexar_token_data = None; self.mouser_requests_today = 0
-        self.mouser_last_reset_date = None; self.mouser_daily_limit = 1000 # Consider external config for limit.
-        # Thread pool for background tasks (API calls, heavy computation) to keep GUI responsive.
+        self.mouser_last_reset_date = None; self.mouser_daily_limit = 1000 
         self.thread_pool = ThreadPoolExecutor(max_workers=MAX_API_WORKERS, thread_name_prefix="BOMWorker")
-        self.running_analysis = False # Flag to prevent concurrent analyses.
-        self._hts_cache = {} # Cache for HTS lookup results.
-        self.prediction_tree_row_map = {}; self.tree_item_data_map = {} # Mapping Treeview items to data.
-        self._active_tooltip_widget = None # Used by tooltip management logic.
-        self.plot_annotation = None # Reference for Matplotlib plot annotations.
+        self.running_analysis = False 
+        self.prediction_tree_row_map = {}; self.tree_item_data_map = {}
+        self._active_tooltip_widget = None 
+        self.plot_annotation = None 
 
         # --- Initial Setup Function Calls ---
-        # Execute methods required to set the initial state of the application after the GUI is built.
-        self.load_mouser_request_counter()      # Load persisted API count (assumes method exists)
-        self.update_rate_limit_display()        # Update UI display (assumes method exists)
-        self.load_digikey_token_from_cache()    # Load cached token (assumes method exists)
-        self.load_nexar_token_from_cache()      # Load cached token (assumes method exists)
-        self.initialize_data_files()            # Ensure necessary data files exist (assumes method exists)
-        self.load_predictions_to_gui()          # Populate predictions tab if data exists (assumes method exists)
-        self.validate_inputs()                  # Validate initial config values (assumes method exists)
-        # Schedule sash positioning using root.after() to ensure widgets are drawn first.
+        
+        self.load_mouser_request_counter()     
+        self.update_rate_limit_display()       
+        self.load_digikey_token_from_cache()    
+        self.load_nexar_token_from_cache()      
+        self.initialize_data_files()            
+        self.load_predictions_to_gui()          
+        self.validate_inputs()                 
+       
         initial_main_sash_pos = 470
         self.root.after(100, lambda: self.set_sash_pos(self.main_paned_window, 0, initial_main_sash_pos))
         initial_analysis_sash_pos = 400
         self.root.after(150, lambda: self.set_sash_pos(self.analysis_pane, 0, initial_analysis_sash_pos))
-        # Optionally display a startup guide popup after a short delay.
-        self.root.after(200, self.show_startup_guide_popup) # Assumes method exists
-        self.update_export_buttons_state()      # Set initial button states (assumes method exists)
-        # Redundant calls removed (load_mouser_request_counter, update_rate_limit_display were called twice)
-        logger.info("GUI initialization complete.") # INFO retained - signifies end of __init__      
+        self.root.after(200, self.show_startup_guide_popup)
+        self.update_export_buttons_state()     
+
+        logger.info("GUI initialization complete.")    
 
    
     def set_sash_pos(self, pane, index, position):
@@ -1209,7 +1190,7 @@ class BOMAnalyzerApp:
         guide_text = """
     Welcome! Here's a quick guide:
 
-    **WARNING!!!  BOM Analyzer will NOT run without API keys.  API keys need to be entered into the 'keys.env' file in the same directory as the python run file.  This file can be created with the following format:
+    **WARNING!!!  BOM Analyzer will NOT run without API keys.  API keys need to be entered into the 'keys.env' file in the working directory.  This file can be created with the following format:
     
                     DIGIKEY_CLIENT_ID=***USER API KEY***
                     DIGIKEY_CLIENT_SECRET=***USER API KEY***
@@ -1243,35 +1224,25 @@ class BOMAnalyzerApp:
         guide_text_widget.insert(tk.END, guide_text)
         guide_text_widget.configure(state="disabled")
         guide_text_widget.pack(fill=tk.BOTH, expand=True, pady=5)
-
-
-        # --- >>> Define bottom_frame BEFORE using it <<< ---
         bottom_frame = ttk.Frame(main_frame)
         bottom_frame.pack(fill=tk.X, pady=(10, 0))
-        # --- >>> END Definition <<< ---
-
         dont_show_var = tk.BooleanVar()
-        # Now it's safe to use bottom_frame as the parent
         dont_show_check = ttk.Checkbutton(bottom_frame, text="Don't show this again", variable=dont_show_var)
         dont_show_check.pack(side=tk.LEFT)
 
         def close_popup():
             if dont_show_var.get():
                 logger.info("Updating config to hide startup guide next time.")
-                # Need to access app_config defined earlier in this method
                 current_config = load_app_config() # Reload just in case
                 current_config["show_startup_guide"] = False
                 save_app_config(current_config)
             popup.destroy()
 
-        # Now it's safe to use bottom_frame as the parent
         ok_button = ttk.Button(bottom_frame, text="OK", command=close_popup, style="Accent.TButton")
         ok_button.pack(side=tk.RIGHT)
 
         # Center popup and make modal
         self.center_window(popup)
-        #popup.grab_set() # Make modal
-        #popup.wait_window() # Wait until closed
 
    
     def setup_plot_options(self):
@@ -1294,12 +1265,11 @@ class BOMAnalyzerApp:
              plot_options.extend([
                  "Prediction Accuracy Comparison",
              ])
-        # Add more plot types...
 
         self.plot_combo['values'] = plot_options
         if len(plot_options) > 1:
             self.plot_combo.current(0)
-        else: # No data yet
+        else: 
              self.plot_combo.set("-- No Data for Plots --")
 
     def _on_plot_hover(self, event):
@@ -1330,12 +1300,11 @@ class BOMAnalyzerApp:
         if event.inaxes == ax:
             logger.debug(f"Hover: In axes at ({event.xdata:.2f}, {event.ydata:.2f}).")
             
-            # --- Improved point detection ---
             # Get mouse position
             mouse_x, mouse_y = event.xdata, event.ydata
             
             # Define a threshold for point detection (in data coordinates)
-            detection_threshold = 5.0  # Adjust based on your plot density
+            detection_threshold = 5.0  
             
             # Initialize variables
             closest_point_idx = None
@@ -1362,7 +1331,6 @@ class BOMAnalyzerApp:
                     break
                 
                 # If standard detection fails, use manual distance calculation
-                # Especially useful for points with extreme values
                 for j, point in enumerate(points):
                     # Calculate distance between mouse and point
                     dx = mouse_x - point[0]
@@ -1478,16 +1446,13 @@ class BOMAnalyzerApp:
             self.clear_visualization()
             return
 
-        # Get data (might need specific processing per plot)
         plot_data = None
         if self.analysis_results and self.analysis_results.get("gui_entries"):
-             # Make a copy to avoid modifying the original analysis results
+        
              plot_data = pd.DataFrame(self.analysis_results.get("gui_entries", [])).copy()
-             # Convert numeric columns correctly FOR PLOTTING (do this inside plot functions ideally)
+             # Convert numeric columns correctly FOR PLOTTING 
              # For hover data, we ensure columns exist in the df passed to the plot function
-             # Let's move the conversion to numeric inside the specific plot functions where needed for plotting axes.
-             # logger.debug(f"Initial plot_data for '{selected_plot}':\n{plot_data.head().to_string()}") # Optional: Check data before plotting
-
+             
         # Clear previous plot widgets (Canvas, Toolbar, Annotation)
         self.clear_visualization()
         self.plot_annotation = None # Ensure annotation is reset
@@ -1495,7 +1460,7 @@ class BOMAnalyzerApp:
         fig = Figure(figsize=(8, 5), dpi=100, facecolor=self.COLOR_BACKGROUND)
 
         # Create a GridSpec: 2 rows, 1 column. Give plot more height.
-        gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0.3) # Adjust ratio/hspace as needed
+        gs = fig.add_gridspec(2, 1, height_ratios=[3, 1], hspace=0.3) 
         ax_main_plot = fig.add_subplot(gs[0, 0]) # Main plot in the top row
         ax_main_plot.set_facecolor(self.COLOR_BACKGROUND)
 
@@ -1515,7 +1480,6 @@ class BOMAnalyzerApp:
                 # Ensure RiskScore is numeric before passing for filtering/plotting
                 plot_data['RiskScore'] = pd.to_numeric(plot_data['RiskScore'], errors='coerce') # Coerce directly here
                 high_risk_list_text = self.plot_risk_distribution(ax_main_plot, plot_data)
-                # For risk plot, hover isn't set up, so store the base data potentially used
                 self._current_plot_specific_df = plot_data.copy()
 
             elif selected_plot == "Cost Distribution (Optimized)" and plot_data is not None:
@@ -1562,7 +1526,6 @@ class BOMAnalyzerApp:
 
             # --- Layout Adjustments ---
             try:
-                # Adjust spacing, especially hspace for vertical gap
                 fig.subplots_adjust(left=0.1, right=0.98, top=0.92, bottom=0.1, hspace=0.4) # Increased hspace
             except ValueError as layout_err:
                  logger.warning(f"Layout adjustment failed: {layout_err}")
@@ -1573,7 +1536,7 @@ class BOMAnalyzerApp:
             canvas_widget = self.fig_canvas.get_tk_widget()
             canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-            # --- Configure Hover Annotation (only if Cost vs LT plot) ---
+            # --- Configure Hover Annotation  ---
             if selected_plot == "Cost vs Lead Time (Optimized)" and not self._current_plot_specific_df.empty:
                 self.plot_annotation = ax_main_plot.annotate("", xy=(0,0), xytext=(10,10),
                                                               textcoords="offset points",
@@ -1585,7 +1548,6 @@ class BOMAnalyzerApp:
             else:
                  self.plot_annotation = None # Ensure annotation is None for other plots
                  self._current_plot_ax = None
-
 
             # --- Add Toolbar ---
             self.toolbar = NavigationToolbar2Tk(self.fig_canvas, self.plot_frame)
@@ -1599,7 +1561,6 @@ class BOMAnalyzerApp:
              ax_err = ax_main_plot if 'ax_main_plot' in locals() else fig.add_subplot(111)
              ax_err.text(0.5, 0.5, f'Error generating plot:\n{e}', color='red', \
                      horizontalalignment='center', verticalalignment='center', transform=ax_err.transAxes)
-             # Still draw the canvas to show the error
              if not self.fig_canvas: # Ensure canvas exists even on error
                  self.fig_canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
                  self.fig_canvas.draw()
@@ -1614,16 +1575,12 @@ class BOMAnalyzerApp:
         chosen purchasing option for each part in the calculated strategy.
         Provides a visual overview of expected delivery timelines.
         """
-        # Use BestCostLT as it corresponds to the Optimized Cost data usually shown
         lead_data = data['BestCostLT'].dropna()
         if lead_data.empty:
              ax.text(0.5, 0.5, 'No valid Lead Time data available.', ha='center', va='center', transform=ax.transAxes)
              return
 
-        # Consider using a boxplot for lead times as they can vary widely
-        # sns.boxplot(y=lead_data, ax=ax, color=self.COLOR_ACCENT)
-        # Or a histogram, potentially with log scale if range is huge
-        sns.histplot(lead_data, kde=False, ax=ax, color=self.COLOR_ACCENT, bins=20) # Adjust bins as needed
+        sns.histplot(lead_data, kde=False, ax=ax, color=self.COLOR_ACCENT, bins=20) 
 
         ax.set_title('Distribution of Part Lead Times (Optimized Strategy)', fontsize=10)
         ax.set_xlabel('Lead Time (Days)', fontsize=9)
@@ -1704,17 +1661,15 @@ class BOMAnalyzerApp:
             x=lt_col, 
             y=cost_col, 
             ax=ax, 
-            alpha=0.7,  # Slightly increase alpha for better visibility
+            alpha=0.7, 
             color=self.COLOR_ACCENT, 
-            s=120,      # Larger point size
-            picker=8    # Larger picker radius
+            s=120,    
+            picker=8   
         )
         
-        # Apply log scale if needed
         if use_log_scale:
             ax.set_yscale('log')
         
-        # Add more space around the plot
         ax.margins(x=0.15, y=0.15)  # 15% margin on all sides
         
         # Set titles and labels
@@ -1745,7 +1700,7 @@ class BOMAnalyzerApp:
         plt.close('all')
 
     
-    def plot_risk_distribution(self, ax_main, data): # Argument name is ax_main
+    def plot_risk_distribution(self, ax_main, data):
         """
         Plots a histogram of calculated Risk Scores, colored by risk category.
 
@@ -1764,11 +1719,9 @@ class BOMAnalyzerApp:
              ax_main.text(0.5, 0.5, 'No valid Risk Score data available.', ha='center', va='center', transform=ax_main.transAxes)
              return None # Return None if no data
 
-        # Make a copy to avoid SettingWithCopyWarning later
         data = data.copy()
 
         # --- Convert RiskScore to numeric early ---
-        # Convert to numeric, coercing errors (like 'N/A') to NaN
         data['RiskScoreNumeric'] = pd.to_numeric(data['RiskScore'], errors='coerce')
         # Drop rows where numeric conversion failed BEFORE calculating valid series for hist
         risk_scores_valid_series = data['RiskScoreNumeric'].dropna()
@@ -1802,7 +1755,6 @@ class BOMAnalyzerApp:
         logger.debug(f"Data BEFORE high-risk filtering (showing RiskScoreNumeric and Status):\n{data[['PartNumber', 'RiskScore', 'RiskScoreNumeric', 'Status']].to_string()}")
 
         # Define filter conditions separately for logging
-        # Use the 'RiskScoreNumeric' column we created
         numeric_risk_filter = (data['RiskScoreNumeric'] >= high_risk_threshold)
         unknown_status_filter = (data['Status'] == 'Unknown') # Check original Status column
         logger.debug(f"Numeric Risk Filter (>={high_risk_threshold}) results:\n{numeric_risk_filter.to_string()}")
@@ -1853,22 +1805,19 @@ class BOMAnalyzerApp:
         the required quantity of each part in the optimized strategy. Helps visualize
         the cost profile of the BOM.
         """
-        # Use 'BestTotalCost' which reflects quantity and potential MOQs/breaks.
         cost_data = data['BestTotalCost'].dropna() # Drop missing cost values.
         if cost_data.empty:
              ax.text(0.5, 0.5, 'No valid Cost data available.', ha='center', va='center', transform=ax.transAxes)
              return
 
-        # Use seaborn histplot with Kernel Density Estimate (KDE).
         sns.histplot(cost_data, kde=True, ax=ax, color=self.COLOR_ACCENT)
-        # Optional: sns.boxplot(y=cost_data, ax=ax) for a different view.
 
         # Set plot titles and labels.
         ax.set_title('Distribution of Part Costs (Optimized Strategy)', fontsize=10)
         ax.set_xlabel('Total Cost per Part ($)', fontsize=9)
         ax.set_ylabel('Frequency / Density', fontsize=9) # Reflects histplot with KDE.
         ax.tick_params(axis='both', which='major', labelsize=8)
-        ax.grid(axis='y', linestyle='--', alpha=0.7) # Add horizontal grid lines.
+        ax.grid(axis='y', linestyle='--', alpha=0.7) 
 
 
     def plot_prediction_accuracy(self, ax):
@@ -1919,12 +1868,11 @@ class BOMAnalyzerApp:
 
          ax.set_ylabel('Average Accuracy (%)', fontsize=9)
          ax.set_title('Prediction Model Accuracy Comparison', fontsize=10)
-         # Use combined ticks if possible, ensure labels match bars
-         ax.set_xticks(np.arange(len(models))) # Position ticks for all models potentially
-         ax.set_xticklabels(models, fontsize=8) # Label with all model names
+         
+         ax.set_xticks(np.arange(len(models))) 
+         ax.set_xticklabels(models, fontsize=8)
          ax.legend(fontsize=8)
 
-         # Add counts as text labels (optional)
          def autolabel(rects, model_list, count_list):
              for i, rect in enumerate(rects):
                  height = rect.get_height()
@@ -1945,7 +1893,7 @@ class BOMAnalyzerApp:
     def _on_predictions_tree_motion(self, event):
         """Handle mouse motion over the predictions treeview for tooltips."""
         tooltip_text = ""
-        tree = self.predictions_tree # Reference the correct tree
+        tree = self.predictions_tree 
         region = tree.identify_region(event.x, event.y)
 
         if region == "heading":
@@ -1956,7 +1904,6 @@ class BOMAnalyzerApp:
                 cols = tree['columns']
                 if 0 <= col_index < len(cols):
                     col_name = cols[col_index]
-                    # Look up stored tooltip for this tree's columns
                     tooltip_text = self.pred_column_tooltips.get(col_name, "")
             except (ValueError, IndexError, tk.TclError) as e:
                 logger.warning(f"Could not identify predictions tree heading column: {e}")
@@ -2036,8 +1983,7 @@ class BOMAnalyzerApp:
             
             single_line_text = text.replace('\n', ' ')
  
-            # Keep wraplength=0 in the label's creation in __init__
-            self.universal_tooltip_label.config(text=single_line_text) # Use the modified single-line text
+            self.universal_tooltip_label.config(text=single_line_text) 
         except tk.TclError: pass
 
     def _hide_universal_tooltip(self):
@@ -2057,7 +2003,6 @@ class BOMAnalyzerApp:
         if event.widget == self._active_tooltip_widget:
             self._hide_universal_tooltip()
             self._active_tooltip_widget = None
-        # Also hide if leaving treeviews or summary table? Add specific checks if needed.
         elif event.widget in [self.tree, self.predictions_tree, self.analysis_table]:
              self._hide_universal_tooltip()
              self._active_tooltip_widget = None
@@ -2271,7 +2216,7 @@ class BOMAnalyzerApp:
 
             # Nexar (No rate limit info easily available via token)
             nx_str = "NX: OK" if API_KEYS["Octopart (Nexar)"] else "NX: Off"
-            if API_KEYS["Octopart (Nexar)"] and hasattr(self, 'nexar_rate_limit_info'): # Placeholder if info is added
+            if API_KEYS["Octopart (Nexar)"] and hasattr(self, 'nexar_rate_limit_info'): 
                  nx_str = self.nexar_rate_limit_info
 
             # Mocked APIs
@@ -3143,11 +3088,10 @@ class BOMAnalyzerApp:
              target_lead_time = safe_float(self.config_vars["target_lead_time_days"].get(), default=-1)
              cost_weight = safe_float(self.config_vars["cost_weight"].get(), default=-1)
              lead_time_weight = safe_float(self.config_vars["lead_time_weight"].get(), default=-1)
-             buy_up_threshold = safe_float(self.config_vars["buy_up_threshold"].get(), default=-1) # Added
-
+             buy_up_threshold = safe_float(self.config_vars["buy_up_threshold"].get(), default=-1) 
              # Check core constraints
              if total_units <= 0: return False
-             if not (0 <= max_premium <= 1000): return False # Allow up to 1000% premium? Adjust if needed
+             if not (0 <= max_premium <= 1000): return False 
              if target_lead_time < 0: return False
              if not (0 <= cost_weight <= 1): return False
              if not (0 <= lead_time_weight <= 1): return False
@@ -3191,7 +3135,7 @@ class BOMAnalyzerApp:
             target_lead_time = safe_float(self.config_vars["target_lead_time_days"].get(), default=-1)
             cost_weight = safe_float(self.config_vars["cost_weight"].get(), default=-1)
             lead_time_weight = safe_float(self.config_vars["lead_time_weight"].get(), default=-1)
-            buy_up_threshold = safe_float(self.config_vars["buy_up_threshold"].get(), default=-1) # Added
+            buy_up_threshold = safe_float(self.config_vars["buy_up_threshold"].get(), default=-1) 
 
             # Check constraints and build error list
             if total_units <= 0: errors.append("Total Units must be > 0.")
@@ -4290,7 +4234,6 @@ class BOMAnalyzerApp:
                  else:
                      logger.error(f"DigiKey: No exact MPN match and first product item is not a dict for '{keywords}'. Cannot proceed.")
                      return None # Cannot proceed if first item isn't a dict
-            # --- END: Added Fallback Logic ---
             else:
                 # No products returned at all
                 logger.info(f"DigiKey: No products array in response for '{keywords}'.")
@@ -4609,7 +4552,6 @@ class BOMAnalyzerApp:
         Returns:
             dict or None: A dictionary containing processed part data if found, otherwise None.
         """
-        # ... (token check logic remains the same) ...
         if not API_KEYS["Octopart (Nexar)"]: return None
         access_token = self.get_nexar_token()
         if not access_token:
@@ -4619,7 +4561,6 @@ class BOMAnalyzerApp:
         headers = { 'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
         search_term = part_number # Using MPN directly
 
-        # Corrected GraphQL Query - Removed limit from offers
         graphql_query = f"""
         query MinimalPartSearch {{
           supSearchMpn(q: "{search_term}", limit: 1, country: "US", currency: "USD") {{
@@ -4647,13 +4588,11 @@ class BOMAnalyzerApp:
           }}
         }}
         """
-        # Also added bestDatasheet query field
         logger.debug(f"Nexar GraphQL Query (Corrected - no offers limit) for MPN '{search_term}'")
 
         try:
             response = self._make_api_request("POST", NEXAR_API_URL, headers=headers, json={'query': graphql_query})
             data = response.json()
-            # ... (rest of the error handling and data processing remains the same) ...
 
             if "errors" in data:
                 # ... (error handling) ...
@@ -4702,7 +4641,6 @@ class BOMAnalyzerApp:
 
 
             # --- Extract Data ---
-            # ... (pricing extraction remains the same) ...
             prices_raw = best_offer_data.get("prices", [])
             pricing = [{"qty": int(p["quantity"]), "price": safe_float(p["price"])} for p in prices_raw if isinstance(p, dict) and p.get("currency", "USD") == "USD" and safe_float(p.get("price")) is not None and int(p.get("quantity", 0)) > 0]
             if pricing: pricing.sort(key=lambda x: x['qty'])
@@ -6990,25 +6928,21 @@ class BOMAnalyzerApp:
         self.prediction_tree_row_map = {} # Reset mapping on each load
 
         try:
-            # 1. Ensure Data is Loaded and Validated
             # This call loads/reloads self.predictions_df from the CSV
             # and ensures required columns exist.
             self.initialize_data_files()
 
-            # 2. Check if DataFrame is valid after initialization
             if self.predictions_df is None or self.predictions_df.empty:
                  logger.info("Prediction data is empty or failed to load. Nothing to display.")
                  # Update accuracies to show N/A or 0 if data is missing
                  self.calculate_and_display_average_accuracies()
                  return
 
-            # 3. Prepare DataFrame for Display (Work on a copy)
             # Ensure a consistent 0-based index AFTER loading/initialization
             # This index will be used for mapping Treeview items back for saving.
             df_for_mapping = self.predictions_df.reset_index(drop=True)
             df_display = df_for_mapping.copy() # Copy for display formatting/sorting
 
-            # 4. Format 'Real_Stock' for Display
             # The underlying data in df_for_mapping['Real_Stock'] should be pandas boolean type
             if 'Real_Stock' in df_display.columns:
                 # Map True -> "True", False -> "False", pd.NA/None -> "?"
@@ -7020,22 +6954,17 @@ class BOMAnalyzerApp:
                 df_display['Real_Stock_Display'] = ''
                 logger.warning("'Real_Stock' column unexpectedly missing during GUI load prep.")
 
-            # 5. Optional: Sort DataFrame for Display (Removed for index stability, add back if mapping is robust)
-            # Sorting here makes mapping the Treeview ID back to the *original* DataFrame index difficult.
-            # If sorting is desired, the mapping in step 7 needs a more robust method (e.g., unique ID).
             if 'Date' in df_display.columns:
                 df_display['Date_dt'] = pd.to_datetime(df_display['Date'], errors='coerce')
                 # Format as YYYY-MM-DD, leave as empty string if conversion failed
                 df_display['Date'] = df_display['Date_dt'].dt.strftime('%Y-%m-%d').fillna('')
                 df_display = df_display.drop(columns=['Date_dt'])
 
-            # 6. Format Other Columns (Optional, but can improve appearance)
             # Ensure all header columns exist in the display DataFrame
             for col in self.pred_header:
                 if col not in df_display.columns:
                     df_display[col] = ''
-
-            # Apply specific formatting to numeric columns for display consistency
+                    
             # This modifies the df_display DataFrame directly
             for col in self.pred_header:
                 # Skip non-numeric or specially handled columns
@@ -7059,8 +6988,6 @@ class BOMAnalyzerApp:
                     # Ensure column is string type, handling potential errors
                     df_display[col] = df_display[col].astype(str).fillna('')
 
-
-            # 7. Populate Treeview and Create Mapping
             # Iterate through the potentially formatted df_display
             # Use the index from the NON-SORTED df_for_mapping for saving later
             for index, row in df_display.iterrows():
@@ -7086,8 +7013,6 @@ class BOMAnalyzerApp:
 
 
             logger.info(f"Loaded {len(df_display)} predictions into GUI.")
-
-            # 8. Update Average Accuracy Display
             self.calculate_and_display_average_accuracies()
             self.setup_plot_options()
 
@@ -7817,13 +7742,6 @@ class BOMAnalyzerApp:
 if __name__ == "__main__":
     root = None # Initialize root to None
     try:
-        # --- Matplotlib/Seaborn backend selection (Optional, but good practice for Tkinter embedding) ---
-        # import matplotlib
-        # matplotlib.use('TkAgg') # Set backend *before* importing pyplot
-        # import matplotlib.pyplot as plt
-        # import seaborn as sns
-        # sns.set_theme(style="whitegrid") # Example Seaborn theme
-        # ---
         import contextlib # For suppressing Prophet logs if needed
 
         root = tk.Tk()
