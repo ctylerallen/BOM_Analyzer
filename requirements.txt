@@ -1,0 +1,20 @@
+# Core Data Handling & Numerics
+pandas
+numpy
+
+# API Interaction & Web
+requests
+python-dotenv # For load_dotenv
+openai>=1.0.0 # Specify >=1.0.0 as the SDK structure changed significantly
+
+# Time Series Forecasting
+prophet
+
+# GUI is handled by standard library Tkinter/ttk
+
+# Plotting & Visualization
+matplotlib
+seaborn
+
+# Note: http.server, ssl, webbrowser, etc. are part of Python's standard library
+# Note: concurrent.futures is part of Python's standard library since 3.2
