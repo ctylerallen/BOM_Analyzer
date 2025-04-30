@@ -44,7 +44,7 @@ The BOM Analyzer is a Python-based desktop application designed to automate the 
 *   **Interactive GUI:** Built with Tkinter/ttk, featuring sortable tables, tabbed results, interactive plots (powered by Matplotlib/Seaborn), and integrated tooltips.
 
 ## Screenshots
-![Example screenshot](/relative/path/to/Screen Shot 2025-04-27 at 10.01.09 PM.png)
+![Example screenshot](Real-Time-BOM-Optimizer-and-Predictor/blob/main/Screen%20Shot%202025-04-27%20at%2010.01.09%20PM.png)
 
 ## Setup Instructions
 
