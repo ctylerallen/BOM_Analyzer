@@ -6,11 +6,9 @@
 * [Technologies Used](#technologies-used)
 * [Features](#features)
 * [Screenshots](#screenshots)
-* [Setup](#setup)
-* [Usage](#usage)
+* [Setup](#setup-instructions)
+* [Usage](#usage-instructions)
 * [Project Status](#project-status)
-* [Room for Improvement](#room-for-improvement)
-* [Acknowledgements](#acknowledgements)
 * [Contact](#contact)
 * [License](#license) 
 
@@ -140,7 +138,7 @@ Project is: _complete_ / In process of prioritizing features on future roadmap.
 
 
 ## Contact
-Created by [@ctylerallen](ctylerallen@protonmail.com) - feel free to contact me!
+Created by [@ctylerallen](ctylerallen@proton.me) - feel free to contact me!
 
 
 
